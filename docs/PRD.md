@@ -1,81 +1,67 @@
 # Product Requirements Document (PRD) - Jira Dashboard
 
 ## 1. Overview
-Dashboard theo dõi hiệu suất và tiến độ dự án (Jira) cho Team Lead/PM. Tập trung vào tính minh bạch, chính xác và giao diện tối giản (Minimalist).
+Dashboard nội bộ giúp Team Lead/PM theo dõi tiến độ và hiệu suất dự án từ Jira. Tập trung vào tính minh bạch, chính xác và giao diện tối giản.
 
 ## 2. Tech Stack
-- **Framework**: Next.js 16 (App Router), React 19.
-- **UI/UX**: Tailwind CSS 4, shadcn/ui, Recharts.
-- **Infrastructure**: Docker & Docker Compose.
-- **API**: Jira REST API v3 (JQL & Worklog endpoints).
-- **Auth**: NextAuth.js (Jira OAuth 2.0).
-- **Animation**: Framer Motion.
+| Category | Technology |
+|----------|------------|
+| Framework | Next.js 16, React 19, TypeScript |
+| UI/UX | Tailwind CSS 4, shadcn/ui, Recharts |
+| Auth | NextAuth.js + Atlassian OAuth 2.0 (3LO) |
+| API | Jira REST API v3 |
+| Deployment | Docker & Docker Compose |
 
-## 3. Key Features
+## 3. Core Features
 
-### 3.1 Dashboard Overview (`/`)
-- **Stat Cards**: Active Projects, Open Tasks, Critical Bugs, Weekly Team Hours.
-- **Charts**: Team Workload (Bar), Activity Stream (Live updates).
-- **Filter**: Dropdown dự án (Default: `[TVT] PAYDAES`).
+### 3.1 Authentication
+- **OAuth 2.0 Login**: Đăng nhập qua Atlassian (không cần nhập token thủ công)
+- **Auto-Token**: Tự động lấy Access Token từ session
+- **Logout**: Đăng xuất và xóa session
 
-### 3.2 Member Report & Performance (`/resources/[userId]`)
-**Chiến lược (Core Logic)**: Đánh giá dựa trên **Worklog** (những gì thực làm) thay vì chỉ **Assignee** (những gì được giao).
+### 3.2 Role-Based Access Control (RBAC)
+| Role | Permissions |
+|------|-------------|
+| **Admin/Team Lead** | Dashboard đầy đủ, xem báo cáo tất cả thành viên |
+| **User/Member** | Chỉ xem báo cáo cá nhân (Member Report) |
 
-#### A. KPIs (Chỉ số chính)
-| Metric | Description | Logic |
-|:---|:---|:---|
-| **Total Hours** | Tổng giờ làm thực tế | Sum(`worklog.timeSpent`) từ tập task đã tham gia. |
-| **Avg Time/Task** | Tốc độ trung bình | `Total Hours` / `Total Completed Tasks`. |
-| **Avg Bug Fix** | Tốc độ fix bug | Avg(`ResolutionDate` - `CreatedDate`) cho Bug. |
-| **Punctuality** | Độ đúng hạn | % Task hoàn thành trước hoặc đúng Due Date. |
-| **Completed** | Số lượng hoàn thành | Tổng số task có trạng thái "Done". |
+### 3.3 Dashboard (Admin Only)
+- **Stat Cards**: Active Projects, Open Tasks, Critical Bugs, Weekly Hours
+- **Charts**: Team Workload (Bar), Activity Stream
+- **Filter**: Dropdown chọn dự án
 
-*Lưu ý: Hiển thị công thức tính cụ thể trên UI để đảm bảo tính minh bạch.*
+### 3.4 Member Report (`/resources/[userId]`)
+**Core Feature** - Đánh giá hiệu suất dựa trên Worklog thực tế.
 
-#### B. Charts (Biểu đồ)
-1.  **Weekly Tasks (Bar)**: Số task hoàn thành theo tuần.
-2.  **Weekly Hours (Area)**: Tổng giờ log theo tuần (thể hiện sự ổn định).
-3.  **Efficiency Radar**: Đánh giá đa chiều (Volume, Speed, Quality, Punctuality, Consistency).
+#### KPIs
+| Metric | Formula |
+|--------|---------|
+| Total Hours | Sum(`worklog.timeSpent`) |
+| Avg Time/Task | `Total Hours / Completed Tasks` |
+| Avg Bug Fix | Avg(`ResolutionDate - CreatedDate`) cho Bug |
+| Punctuality | % Task hoàn thành đúng/trước Due Date |
 
-#### C. Detail Tables (Bảng dữ liệu)
-1.  **Worklog History**: Lịch sử log work chi tiết (Ngày, Task, Giờ, Diễn giải).
-2.  **Participated Tasks**: Danh sách task thành viên đó đã tham gia/đóng góp.
+#### Charts & Tables
+- Weekly Tasks/Hours Charts
+- Efficiency Radar (Volume, Speed, Quality, Punctuality)
+- Worklog History Table
+- Participated Tasks Table
 
-## 4. Technical Concepts
-- **JQL Search**: Tìm kiếm task linh hoạt.
-4.  **Dual-Query Strategy**: Kết hợp query theo Assignee và query theo Worklog Author để lấy dữ liệu toàn diện.
-5.  **Performance**: Cache dữ liệu nặng, sử dụng Pagination khi fetch Jira API.
+### 3.5 UX Features
+- **Multi-language**: Tiếng Việt / English
+- **Dark/Light Mode**: Tùy chỉnh giao diện
+- **Loading Animation**: Smooth transitions
 
-## 5. New Features (Phase 2)
-### 5.1 User Permissions & Authentication
-- **Login**: Đăng nhập bằng tài khoản Jira (OAuth 2.0) thay vì nhập Token thủ công.
-- **Auto-Token**: Tự động lấy Access Token từ session đăng nhập để gọi API.
+## 4. Environment Variables
+```env
+NEXTAUTH_SECRET=your-secret-key
+NEXTAUTH_URL=http://localhost:3000
+ATLASSIAN_CLIENT_ID=your-client-id
+ATLASSIAN_CLIENT_SECRET=your-client-secret
+```
 
-### 5.2 Role-based Access Control & Reporting
-Phân quyền chi tiết về hiển thị dữ liệu:
-
-#### A. Quyền User (Member)
-Chỉ xem dữ liệu của chính mình:
-1.  **My Worklogs**:
-    - Danh sách Task/Bug đã log work.
-    - Chi tiết số giờ + comment diễn giải.
-    - Filter theo: Giờ / Ngày.
-2.  **My Performance**:
-    - Thống kê hiệu suất theo: Ngày / Tuần / Tháng.
-    - Biểu đồ trực quan tương ứng.
-
-#### B. Quyền Administrator / Team Leader
-Quyền hạn rộng hơn, bao quát toàn team:
-1.  **Member Inspection (Soi chi tiết)**:
-    - Xem danh sách Task/Bug của *từng user*.
-    - **Highlight**: Làm nổi bật phần log work (số giờ + comment) để dễ review.
-2.  **Performance Analytics**:
-    - Thống kê hiệu suất từng Member (Ngày/Tuần/Tháng).
-    - Thống kê tổng thể Team (so sánh hiệu suất, tổng quan).
-    - Biểu đồ trực quan đa chiều.
-
-### 5.3 UX & Systems
-- **Logout**: Tính năng đăng xuất.
-- **Enhanced Loading**: Cải thiện animation loading (mượt mà, chuyên nghiệp hơn).
-
-
+## 5. Atlassian OAuth Scopes
+| API | Scope |
+|-----|-------|
+| Jira API | `read:jira-work`, `read:jira-user` |
+| User Identity | `read:me` |

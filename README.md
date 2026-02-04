@@ -1,48 +1,94 @@
-# Internal Jira Project Management Dashboard
+# Jira Dashboard
 
-A comprehensive dashboard for Project Managers to track progress, workload, and efficiency using Jira data.
+Dashboard nội bộ giúp Team Lead/PM theo dõi tiến độ và hiệu suất dự án từ Jira.
 
-## Features
-- **Dashboard Overview:** Aggregated stats, activity stream, and JQL search.
-- **Project Details:** Burndown charts, status distribution, and sprint velocity.
-- **Resource Management:** Member allocation, workload analysis, and efficiency reports.
-- **Tech Stack:** Next.js 14, TypeScript, Tailwind CSS (Minimalist), Shadcn UI, Recharts.
+## ✨ Features
 
-## Getting Started
+- **Dashboard Overview**: Thống kê dự án, task mở, bug nghiêm trọng, giờ làm tuần
+- **Project Details**: Chi tiết sprint, phân bổ trạng thái, workload team
+- **Member Report**: Báo cáo hiệu suất cá nhân (Hours, Punctuality, Charts)
+- **Role-Based Access**: Admin xem toàn bộ, User chỉ xem báo cáo cá nhân
+- **OAuth 2.0 Login**: Đăng nhập qua Atlassian (không cần nhập token thủ công)
+- **Multi-language**: Tiếng Việt / English
+- **Dark/Light Mode**: Tùy chỉnh giao diện
 
-1. **Prerequisites:**
-   - Node.js 18+ installed.
-   - A Jira account with an API Token.
+## 🛠 Tech Stack
 
-2. **Setup Credentials:**
-   Copy `.env.local.example` to `.env.local` and fill in your details:
-   ```bash
-   cp .env.local.example .env.local
-   ```
-   Edit `.env.local`:
-   ```env
-   JIRA_HOST=https://your-domain.atlassian.net
-   JIRA_EMAIL=your-email@example.com
-   JIRA_API_TOKEN=your-api-token
-   ```
+- **Framework**: Next.js 16, React 19, TypeScript
+- **UI**: Tailwind CSS 4, shadcn/ui, Recharts
+- **Auth**: NextAuth.js + Atlassian OAuth 2.0 (3LO)
+- **Deployment**: Docker & Docker Compose
 
-3. **Install Dependencies:**
-   ```bash
-   npm install
-   ```
+## 🚀 Getting Started
 
-4. **Run Development Server:**
-   ```bash
-   npm run dev
-   ```
-   Open [http://localhost:3000](http://localhost:3000).
+### Prerequisites
+- Node.js 18+
+- Atlassian Developer App (OAuth 2.0)
 
-## Project Structure
-- `app/`: Next.js App Router pages and API routes.
-- `components/`: UI components, charts, and layout.
-- `lib/`: Utilities and Jira client configuration.
+### 1. Setup Atlassian OAuth App
+1. Truy cập [Atlassian Developer Console](https://developer.atlassian.com/console/myapps/)
+2. Tạo OAuth 2.0 App với các scopes:
+   - `read:jira-work`
+   - `read:jira-user`
+   - `read:me`
+3. Thêm Callback URL: `http://localhost:3000/api/auth/callback/atlassian`
 
-## Key metrics
-- **Burndown:** Tracks sprint progress.
-- **Punctuality:** Percentage of tasks completed on or before due date.
-- **Bug Fix Time:** Average time spent resolving bugs.
+### 2. Configure Environment
+```bash
+cp .env.local.example .env.local
+```
+
+Edit `.env.local`:
+```env
+# NextAuth
+NEXTAUTH_SECRET=your-secret-key
+NEXTAUTH_URL=http://localhost:3000
+
+# Atlassian OAuth 2.0
+ATLASSIAN_CLIENT_ID=your-client-id
+ATLASSIAN_CLIENT_SECRET=your-client-secret
+```
+
+### 3. Install & Run
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000)
+
+### 4. Docker (Optional)
+```bash
+docker-compose up -d --build
+```
+
+## 📁 Project Structure
+
+```
+app/
+├── api/auth/           # NextAuth API routes
+├── api/projects/       # Jira proxy APIs
+├── projects/           # Project views
+├── resources/          # Team & Member views
+│   └── [userId]/       # Member Report (Core Feature)
+├── settings/           # Settings (Language, Theme)
+└── page.tsx            # Main Dashboard
+
+components/
+├── dashboard/          # Admin Dashboard
+├── reports/            # Member Report View
+├── charts/             # Recharts components
+├── layout/             # Sidebar, Header
+└── ui/                 # shadcn/ui components
+
+lib/
+├── jira.ts             # Jira API (OAuth only)
+└── translations.ts     # i18n (vi/en)
+```
+
+## 📖 Documentation
+
+- [PRD](docs/PRD.md) - Product Requirements
+- [Implementation Plan](docs/IMPLEMENTATION_PLAN.md) - Development phases
+- [Test Plan](docs/TEST_PLAN.md) - Test cases
+- [Deployment](docs/DEPLOYMENT.md) - Docker deployment guide
