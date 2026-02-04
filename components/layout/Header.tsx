@@ -4,6 +4,7 @@ import * as React from "react";
 import { Moon, Sun, Search, Globe } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
+import { signIn, signOut, useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,14 +12,18 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/components/language-provider";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function Header() {
     const { setTheme } = useTheme();
     const { language, setLanguage, t } = useLanguage();
     const router = useRouter();
+    const { data: session, status } = useSession();
     const [searchQuery, setSearchQuery] = React.useState("");
 
     const handleSearch = (e: React.FormEvent) => {
@@ -88,8 +93,31 @@ export function Header() {
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
+
+                {/* User Menu */}
+                {status === "authenticated" && session?.user ? (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="relative h-8 w-8 rounded-full">
+                                <Avatar className="h-8 w-8">
+                                    <AvatarImage src={session.user.image || ""} alt={session.user.name || ""} />
+                                    <AvatarFallback>{session.user.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>{session.user.name}</DropdownMenuLabel>
+                            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{session.user.email}</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => signOut()}>
+                                {t.header.logout}
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                ) : (
+                    <Button onClick={() => signIn("atlassian")}>{t.header.loginWithJira}</Button>
+                )}
             </div>
         </header>
     );
 }
-

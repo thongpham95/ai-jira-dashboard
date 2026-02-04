@@ -1,10 +1,18 @@
 
 import { NextResponse } from 'next/server';
-import { getJiraClient, searchJira } from '@/lib/jira';
+import { searchJira } from '@/lib/jira';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function POST(request: Request) {
     try {
         const { startDate, endDate, projectIds, authorIds } = await request.json();
+
+        const session = await getServerSession(authOptions);
+        // @ts-ignore
+        const accessToken = session?.accessToken;
+        // @ts-ignore
+        const cloudId = session?.cloudId;
 
         // 1. Build JQL to find candidates
         // We look for issues updated in the range, because a worklog add updates the issue.
@@ -28,7 +36,9 @@ export async function POST(request: Request) {
         // 2. Search Issues
         const results = await searchJira(jql, {
             maxResults: 1000, // Limit to 1000 for safety
-            fields: ['worklog', 'summary', 'project', 'issuetype']
+            fields: ['worklog', 'summary', 'project', 'issuetype'],
+            accessToken,
+            cloudId
         });
 
         const issues = results.issues || [];
