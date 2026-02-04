@@ -37,6 +37,9 @@ export const translations = {
             dark: 'Tối',
             system: 'Hệ thống',
             language: 'Ngôn ngữ',
+            login: 'Đăng nhập',
+            logout: 'Đăng xuất',
+            loginWithJira: 'Đăng nhập với Jira',
         },
 
         // Dashboard
@@ -111,18 +114,7 @@ export const translations = {
         // Settings
         settings: {
             title: 'Cài đặt',
-
-            // Connection
-            jiraConnection: 'Kết nối Jira',
-            connectionStatus: 'Trạng thái kết nối API Jira của bạn.',
-            checkConnection: 'Kiểm tra kết nối',
-            connected: 'Đã kết nối',
-            disconnected: 'Mất kết nối',
-            jiraHost: 'Jira Host',
-            email: 'Email',
-            apiToken: 'API Token',
-            credentialsNote: 'Để cập nhật thông tin đăng nhập, chỉnh sửa tệp',
-            restartNote: 'trong thư mục gốc dự án và khởi động lại máy chủ.',
+            description: 'Vui lòng đăng nhập để xem bảng điều khiển và báo cáo của bạn.',
 
             // Appearance
             appearance: 'Giao diện',
@@ -205,6 +197,9 @@ export const translations = {
             dark: 'Dark',
             system: 'System',
             language: 'Language',
+            login: 'Login',
+            logout: 'Logout',
+            loginWithJira: 'Login with Jira',
         },
 
         // Dashboard
@@ -279,18 +274,7 @@ export const translations = {
         // Settings
         settings: {
             title: 'Settings',
-
-            // Connection
-            jiraConnection: 'Jira Connection',
-            connectionStatus: 'Status of your connection to the Jira API.',
-            checkConnection: 'Check Connection',
-            connected: 'Connected',
-            disconnected: 'Disconnected',
-            jiraHost: 'Jira Host',
-            email: 'Email',
-            apiToken: 'API Token',
-            credentialsNote: 'To update credentials, edit the',
-            restartNote: 'file in your project root and restart the server.',
+            description: 'Please login to view your dashboard and reports.',
 
             // Appearance
             appearance: 'Appearance',

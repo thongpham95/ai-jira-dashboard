@@ -1,9 +1,17 @@
 import { NextResponse } from 'next/server';
 import { searchJira, searchAllJira } from '@/lib/jira';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function POST(request: Request) {
     try {
         const { jql, startAt = 0, maxResults = 50, fields, fetchAll = false } = await request.json();
+
+        const session = await getServerSession(authOptions);
+        // @ts-ignore
+        const accessToken = session?.accessToken;
+        // @ts-ignore
+        const cloudId = session?.cloudId;
 
         // Default fields if not specified
         const searchFields = fields || [
@@ -26,7 +34,9 @@ export async function POST(request: Request) {
         const results = await searchFn(jql, {
             startAt,
             maxResults,
-            fields: searchFields
+            fields: searchFields,
+            accessToken,
+            cloudId
         });
 
         return NextResponse.json(results);

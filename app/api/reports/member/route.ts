@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { searchAllJira } from '@/lib/jira';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function GET(request: Request) {
     try {
@@ -8,6 +10,12 @@ export async function GET(request: Request) {
         const projectKey = searchParams.get('projectKey');
         // Default 30 days
         const days = parseInt(searchParams.get('days') || '30');
+
+        const session = await getServerSession(authOptions);
+        // @ts-ignore
+        const accessToken = session?.accessToken;
+        // @ts-ignore
+        const cloudId = session?.cloudId;
 
         if (!userId) {
             return NextResponse.json({ error: 'UserId is required' }, { status: 400 });
@@ -24,7 +32,9 @@ export async function GET(request: Request) {
         const worklogJql = `worklogAuthor = "${userId}" AND worklogDate >= "${startDateStr}"`;
 
         const worklogResults = await searchAllJira(worklogJql, {
-            fields: ['worklog', 'summary', 'project', 'updated', 'status', 'resolutiondate', 'duedate', 'timespent', 'timeoriginalestimate', 'created', 'issuetype']
+            fields: ['worklog', 'summary', 'project', 'updated', 'status', 'resolutiondate', 'duedate', 'timespent', 'timeoriginalestimate', 'created', 'issuetype'],
+            accessToken,
+            cloudId
         });
 
         // In Worklog-Centric approach, "Member Issues" are simply tasks the member worked on.
@@ -38,7 +48,9 @@ export async function GET(request: Request) {
         }
         const teamResults = await searchAllJira(teamJql, {
             maxResults: 200,
-            fields: ['timespent', 'duedate', 'resolutiondate', 'issuetype', 'updated', 'created']
+            fields: ['timespent', 'duedate', 'resolutiondate', 'issuetype', 'updated', 'created'],
+            accessToken,
+            cloudId
         });
         const teamIssues = teamResults.issues || [];
 

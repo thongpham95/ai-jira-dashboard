@@ -1,172 +1,117 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Users, FolderKanban, CheckCircle2, AlertCircle } from "lucide-react";
-import { StatCard } from "@/components/ui/stat-card";
-import { ActivityStream } from "@/components/ActivityStream";
-import { WorkloadBarChart } from "@/components/charts/WorkloadBarChart";
-import { JQLSearch } from "@/components/search/JQLSearch";
+import { useSession, signIn } from "next-auth/react";
+import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
+import { MemberReportView } from "@/components/reports/MemberReportView";
 import { useLanguage } from "@/components/language-provider";
-
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LoadingAnimation } from "@/components/ui/loading-animation";
+import { Button } from "@/components/ui/button";
 
 export default function Home() {
+  const { data: session, status } = useSession();
   const { t } = useLanguage();
-  const [stats, setStats] = useState({
-    activeProjects: 0,
-    openIssues: 0,
-    criticalBugs: 0,
-    totalHours: 0
-  });
-  const [projectsList, setProjectsList] = useState<any[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("all"); // Default to all initially, will set to TVT if found
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [checkingRole, setCheckingRole] = useState(true);
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        // 1. Fetch Active Projects
-        const projectsRes = await fetch('/api/projects');
-        const projects = await projectsRes.json();
+    async function checkPermissions() {
+      if (status !== "authenticated") {
+        setCheckingRole(false);
+        return;
+      }
 
-        if (Array.isArray(projects)) {
-          setProjectsList(projects);
-          // Default filter logic: Find [TVT] PAYDAES
-          const defaultProj = projects.find((p: any) => p.name.includes('PAYDAES') || p.key === 'TVT');
-          if (defaultProj) {
-            setSelectedProjectId(defaultProj.id); // Use ID or Key? Workload chart handles both ideally, let's use ID if consistent
+      try {
+        // Fetch permissions from our API
+        // We check for 'ADMINISTER_PROJECTS' or 'BROWSE_PROJECTS' to distinguish capability
+        // Ideally we check a specific project, but for 'Global' Dashboard role, we can pick a default or check 'permissions' endpoint generally
+        // The /api/auth/permissions endpoint calls mypermissions. 
+        // If we don't pass projectKey, it might return global permissions or error depending on Jira instance config.
+        // Let's try fetching without projectKey first (Standard Jira Cloud often supports this for global context)
+        // Or we fetch for the default project [TVT].
+
+        // To be safe, we'll assume Everyone is 'USER' unless they have specific Admin permission.
+        // Let's just fetch default list.
+        const res = await fetch('/api/auth/permissions');
+        const data = await res.json();
+
+        if (data.permissions && data.permissions.ADMINISTER_PROJECTS) {
+          // Check if they have the permission
+          // Jira response: { permissions: { ADMINISTER_PROJECTS: { havePermission: true, ... } } }
+          if (data.permissions.ADMINISTER_PROJECTS.havePermission) {
+            setIsAdmin(true);
           }
+        } else {
+          // If API structure varies or we specifically need a project context to check admin:
+          // We'll default to USER for safety.
+          setIsAdmin(false);
         }
 
-        // 2. Fetch Issues Stats + Weekly Worklogs (Parallel)
-        const weekStart = new Date();
-        weekStart.setDate(weekStart.getDate() - 7);
-        const weekStartStr = weekStart.toISOString().split('T')[0];
-        const todayStr = new Date().toISOString().split('T')[0];
-
-        const [openIssuesRes, bugsRes, worklogsRes] = await Promise.all([
-          fetch('/api/issues/count', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jql: 'statusCategory != Done AND resolution = Unresolved' })
-          }),
-          fetch('/api/issues/count', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jql: 'issuetype = Bug AND priority in (High, Highest) AND resolution = Unresolved' })
-          }),
-          fetch('/api/worklogs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ startDate: weekStartStr, endDate: todayStr })
-          })
-        ]);
-
-        const openIssues = await openIssuesRes.json();
-        const criticalBugs = await bugsRes.json();
-        const worklogsData = await worklogsRes.json();
-
-        // Calculate total weekly hours from worklogs
-        const totalWeeklySeconds = (worklogsData.worklogs || []).reduce(
-          (sum: number, log: any) => sum + (log.timeSpentSeconds || 0), 0
-        );
-        const totalWeeklyHours = Math.round(totalWeeklySeconds / 3600);
-
-        // 3. Update State
-        setStats({
-          activeProjects: Array.isArray(projects) ? projects.length : 0,
-          openIssues: openIssues.total || 0,
-          criticalBugs: criticalBugs.total || 0,
-          totalHours: totalWeeklyHours
-        });
-
-      } catch (err) {
-        console.error("Failed to fetch dashboard data:", err);
-        setError(t.dashboard.loadError);
+      } catch (e) {
+        console.error("Failed to check permissions", e);
+        // Default to Member view on error
+        setIsAdmin(false);
       } finally {
-        setLoading(false);
+        setCheckingRole(false);
       }
     }
 
-    fetchData();
-  }, [t.dashboard.loadError]);
+    if (status === "authenticated") {
+      checkPermissions();
+    } else if (status === "unauthenticated") {
+      setCheckingRole(false);
+    }
+  }, [status]);
 
-  const router = useRouter();
+  if (status === "loading" || checkingRole) {
+    return <LoadingAnimation />;
+  }
 
-  const handleSearch = (jql: string) => {
-    router.push(`/search?query=${encodeURIComponent(jql)}`);
-  };
+  if (status === "unauthenticated") {
+    return (
+      <div className="flex h-[80vh] w-full flex-col items-center justify-center gap-6 text-center">
+        <div className="max-w-md space-y-4">
+          <h1 className="text-4xl font-bold tracking-tight">Jira Dashboard</h1>
+          <p className="text-muted-foreground">
+            {t.settings.description || "Please login to view your dashboard and reports."}
+          </p>
+          <Button size="lg" onClick={() => signIn("atlassian")}>
+            {t.header.loginWithJira}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Authenticated
+  if (isAdmin) {
+    return <AdminDashboard />;
+  }
+
+  // User View (Member Report)
+  // We use the session user's ID.
+  // Note: session.user.id SHOULD be the accountId.
+  // We'll assume the logged in user is the "Member" regarding the report.
+  // We explicitly name arguments to ensure type safety.
+  // @ts-ignore
+  const userId = session?.user?.id;
+  const userName = session?.user?.name || "User";
+
+  if (!userId) {
+    return (
+      <div className="p-4 text-center text-red-500">
+        Error: Unable to identify user account ID from session.
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">{t.dashboard.title}</h1>
-        <div className="flex items-center gap-4 w-[600px]">
-          <div className="w-[200px]">
-            <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-              <SelectTrigger>
-                <SelectValue placeholder={t.dashboard.selectProject} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t.dashboard.allProjects}</SelectItem>
-                {projectsList.map(p => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex-1">
-            <JQLSearch onSearch={handleSearch} isLoading={loading} />
-          </div>
-        </div>
-      </div>
-
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-md text-sm border border-red-200 dark:border-red-900">
-          {error}
-        </div>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title={t.dashboard.activeProjects}
-          value={loading ? "..." : stats.activeProjects}
-          icon={FolderKanban}
-          description={t.dashboard.projectsFromJira}
-        />
-        <StatCard
-          title={t.dashboard.openIssues}
-          value={loading ? "..." : stats.openIssues}
-          icon={CheckCircle2}
-          description={t.dashboard.unresolvedIssues}
-        />
-        <StatCard
-          title={t.dashboard.criticalBugs}
-          value={loading ? "..." : stats.criticalBugs}
-          icon={AlertCircle}
-          description={t.dashboard.highPriorityBugs}
-          className="border-red-200 dark:border-red-900"
-        />
-        <StatCard
-          title={t.dashboard.weeklyHours}
-          value={loading ? "..." : stats.totalHours}
-          icon={Users}
-          description={t.dashboard.totalWeeklyHours}
-        />
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div className="col-span-1 md:col-span-2 lg:col-span-4">
-          <WorkloadBarChart projectId={selectedProjectId} />
-        </div>
-        <div className="col-span-1 md:col-span-2 lg:col-span-3">
-          <ActivityStream projectId={selectedProjectId} />
-        </div>
-      </div>
-    </div>
+    <MemberReportView
+      userId={userId}
+      userName={userName}
+      hideBackButton={true}
+    // We can optionally pass a projectFilter if we want to default them to a project
+    // For now, let them see their global stats across all projects (standard for 'My' view)
+    />
   );
 }
-
