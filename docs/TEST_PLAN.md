@@ -1,75 +1,105 @@
-# Comprehensive Test Plan - Jira Dashboard
+# Test Plan - Jira Dashboard
 
-This document outlines the test cases for the Jira Dashboard application, specifically focusing on **Authentication**, **RBAC**, **Core Features**, and **UI/UX**.
+## 🔐 Part 1: Authentication
 
----
+### 1.1 Login Flow
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| Unauthenticated: Home shows login prompt | ✅ | Shows "Đăng nhập với Jira" button |
+| Click "Login with Jira" redirects to Atlassian | ✅ | OAuth flow initiates correctly |
+| After approval, redirects back to app | ✅ | Requires correct Callback URL in Atlassian |
+| Logged in: Header shows user info | ✅ | Avatar + name displayed |
 
-## 🏗 Part 1: Authentication & Security
+### 1.2 Logout Flow
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| Click Avatar → Logout clears session | ✅ | Returns to login state |
+| Protected routes require login | ✅ | Redirects to home with login prompt |
 
-### 1. Login Flow
-- [x] **Unauthenticated Access**
-    - [x] Navigating to `/` (Home) redirects to the Login prompt/page.
-    - [x] Navigating to protected routes (e.g., `/resources`) redirects to Login.
-- [ ] **OAuth Login**
-    - [x] Clicking "Login with Jira" initiates the Atlassian OAuth flow.
-    - [x] User is redirected to Atlassian authorization page. (Attempted, halted by missing credentials).
-    - [ ] After approval, user is redirected back to the app (`/`).
-    - [ ] **Success State**: User is logged in, Header shows User Avatar.
-
-### 2. Logout Flow
-- [ ] **Logout Action**
-    - [ ] Clicking User Avatar -> "Logout" clears the session.
-    - [ ] User is returned to the unauthenticated state (Login button visible).
-    - [ ] Accessing protected routes now triggers a redirect or access denied.
-
----
-
-## 👥 Part 2: Role-Based Access Control (RBAC)
-
-### 3. Admin View (e.g., Team Lead)
-*Pre-requisite: Login with an account having `ADMINISTER_PROJECTS` permission.*
-- [x] **Dashboard Overview**
-    - [x] See full dashboard with "Active Projects", "Open Issues" stats.
-    - [x] **Charts**: "Workload Distribution" and "Activity Stream" are visible.
-    - [x] **Project Filter**: Can switch between "All Projects" and specific ones (e.g., `[TVT] PAYDAES`).
-
-### 4. Member View (e.g., Standard User)
-*Pre-requisite: Login with an account having standard `USER` permissions.*
-- [x] **Personal Report Dashboard**
-    - [x] Home page (`/`) automatically renders the **Member Report View**.
-    - [x] **No Global Stats**: Does NOT see team workload or global project lists.
-    - [x] **My Stats**: Sees "Total Hours Logged", "Avg Time/Task", "Punctuality" for *themselves*.
-    - [x] **My Tasks**: "Participated Tasks" table lists issues *they* worked on.
+### 1.3 OAuth Configuration
+| Requirement | Value |
+|-------------|-------|
+| Callback URL | `http://localhost:3000/api/auth/callback/atlassian` |
+| Scopes | `read:jira-work`, `read:jira-user`, `read:me` |
 
 ---
 
-## 📊 Part 3: Core Features & Logic
+## 👥 Part 2: Role-Based Access Control
 
-### 5. Data Accuracy (Member Report)
-- [x] **Worklog Attribution**
-    - [x] **Scenario**: User logs 2h on a task assigned to someone else.
-    - [x] **Expectation**: "Total Hours" increases by 2h. Task appears in "Participated Tasks".
-- [x] **KPI Calculations**
-    - [x] **Avg Time/Task**: Formula = `Total Hours / Completed Participated Tasks`.
-    - [x] **Punctuality**: Formula = `(Tasks Done On Time / Total Tasks with Due Date) * 100`.
-- [x] **Filtering**
-    - [x] Data correctly respects the default "30 Days" window.
+### 2.1 Admin View
+*Prerequisite: Account with `ADMINISTER_PROJECTS` permission*
 
-### 6. Search Functionality
-- [x] **Global Search**
-    - [x] Entering JQL in the Header search bar navigates to `/search`.
-    - [x] Results table displays correct issues matching the JQL.
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| Home shows full Dashboard | ✅ | AdminDashboard component |
+| See Active Projects, Open Issues stats | ✅ | StatCards visible |
+| Workload & Activity charts visible | ✅ | Bar chart + Activity stream |
+| Can switch project filter | ✅ | Dropdown updates charts |
+| Can view any member's report | ✅ | `/resources/[userId]` accessible |
+
+### 2.2 Member View
+*Prerequisite: Account with standard USER permissions*
+
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| Home shows Member Report (own stats) | ✅ | MemberReportView component |
+| No global team stats visible | ✅ | Only personal data |
+| See own Hours, Punctuality, KPIs | ✅ | Personal metrics displayed |
+| See own Participated Tasks | ✅ | Table shows tasks with worklogs |
 
 ---
 
-## 🎨 Part 4: UI/UX & Localization
+## 📊 Part 3: Core Features
 
-### 7. Interface
-- [x] **Theme Switching**
-    - [x] Toggle Light/Dark mode. App theme updates instantly.
-- [x] **Localization (i18n)**
-    - [x] Switch Language to "Vietnamese".
-    - [x] Header buttons change ("Đăng xuất", "Cài đặt").
-    - [x] Dashboard titles change ("Tổng quan", "Báo cáo thành viên").
-- [x] **Loading States**
-    - [x] Verify `LoadingAnimation` (spinner) appears during data fetch or page transitions.
+### 3.1 Member Report Data
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| Worklog from non-assigned task counted | ✅ | Hours increase, task appears in list |
+| Avg Time/Task = Total Hours / Tasks | ✅ | Formula verified |
+| Punctuality = Done On Time / Total % | ✅ | Formula verified |
+| Worklog History table accurate | ✅ | Matches Jira data |
+
+### 3.2 Search Functionality
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| JQL search returns correct results | ✅ | `/search` page works |
+| Results table displays issues | ✅ | Key, Summary, Status shown |
+
+---
+
+## 🎨 Part 4: UI/UX
+
+### 4.1 Settings
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| Language switch (vi/en) works | ✅ | All text updates |
+| Theme switch (Light/Dark/System) works | ✅ | Instant update |
+| No "Jira Connection" section | ✅ | Removed (OAuth replaces it) |
+
+### 4.2 Loading & Animations
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| Loading animation on page transitions | ✅ | LoadingAnimation component |
+| Smooth chart animations | ✅ | Recharts animations work |
+
+---
+
+## ⚙️ Part 5: Technical
+
+### 5.1 API Routes
+| Route | Auth Required | Status |
+|-------|---------------|--------|
+| `/api/auth/[...nextauth]` | No | ✅ |
+| `/api/auth/permissions` | Yes | ✅ |
+| `/api/projects` | Yes | ✅ |
+| `/api/issues` | Yes | ✅ |
+| `/api/worklogs` | Yes | ✅ |
+| `/api/users` | Yes | ✅ |
+| `/api/reports/member` | Yes | ✅ |
+
+### 5.2 Build & Deploy
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| `npm run build` succeeds | ✅ | No TypeScript errors |
+| `npm run dev` works | ✅ | Hot reload functional |
+| Docker build works | ✅ | Multi-stage build |

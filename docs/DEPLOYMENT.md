@@ -1,33 +1,88 @@
-# Hướng dẫn Deploy lên Docker Hub
+# Deployment Guide - Jira Dashboard
 
-Tài liệu này hướng dẫn cách build và push Docker Image lên Docker Hub để Tech Lead hoặc người khác có thể pull về và deploy.
+Hướng dẫn cách deploy ứng dụng lên Docker Hub và Production server.
 
-## 1. Chuẩn bị
-- Đảm bảo bạn đã có tài khoản [Docker Hub](https://hub.docker.com/).
-- Đã cài đặt Docker Desktop trên máy.
+## Prerequisites
 
-## 2. Các bước thực hiện
+### 1. Atlassian OAuth App
+Trước khi deploy, bạn cần tạo OAuth 2.0 App trên Atlassian:
 
-### Bước 1: Đăng nhập vào Docker Hub
-Mở terminal và chạy lệnh sau (nhập username và password khi được hỏi):
+1. Truy cập [Atlassian Developer Console](https://developer.atlassian.com/console/myapps/)
+2. Tạo OAuth 2.0 App mới
+3. Thêm **Permissions**:
+   - **Jira API**: `read:jira-work`, `read:jira-user`
+   - **User identity API**: `read:me`
+4. Thêm **Callback URL**:
+   - Development: `http://localhost:3000/api/auth/callback/atlassian`
+   - Production: `https://your-domain.com/api/auth/callback/atlassian`
+
+### 2. Environment Variables
+Tạo file `.env.local` với nội dung:
+
+```env
+# NextAuth (Required)
+NEXTAUTH_SECRET=your-secret-key-min-32-chars
+NEXTAUTH_URL=http://localhost:3000  # Đổi thành domain production khi deploy
+
+# Atlassian OAuth 2.0 (Required)
+ATLASSIAN_CLIENT_ID=your-client-id
+ATLASSIAN_CLIENT_SECRET=your-client-secret
+```
+
+> **Lưu ý**: Chạy `openssl rand -base64 32` để tạo NEXTAUTH_SECRET an toàn.
+
+---
+
+## Local Development
+
+```bash
+# Install dependencies
+npm install
+
+# Run dev server
+npm run dev
+
+# Open http://localhost:3000
+```
+
+---
+
+## Docker Deployment
+
+### Option 1: Docker Compose (Recommended)
+
+```bash
+# Build và start
+docker-compose up -d --build
+
+# Xem logs
+docker-compose logs -f
+
+# Dừng
+docker-compose down
+```
+
+### Option 2: Push lên Docker Hub
+
+#### Bước 1: Đăng nhập Docker Hub
 ```bash
 docker login
 ```
 
-### Bước 2: Build và Push Image
-Sử dụng script có sẵn để tự động build và push. Thay `your-dockerhub-username` bằng tên tài khoản của bạn.
-
+#### Bước 2: Build và Push
 ```bash
-# Cấp quyền thực thi cho script (chỉ cần làm 1 lần)
+# Cấp quyền cho script (chỉ cần 1 lần)
 chmod +x scripts/build-and-push.sh
 
-# Chạy script deploy
+# Build và push (thay username)
 ./scripts/build-and-push.sh your-dockerhub-username
 ```
-Ví dụ: `./scripts/build-and-push.sh thongpham95`
 
-### Bước 3: Gửi thông tin cho Tech Lead
-Gửi cho Tech Lead file `docker-compose.prod.yml` (đã được tạo sẵn trong thư mục gốc) hoặc hướng dẫn họ chạy lệnh sau:
+**Ví dụ**: `./scripts/build-and-push.sh thongpham95`
+
+#### Bước 3: Deploy trên Production Server
+
+Trên server, tạo file `.env.local` và chạy:
 
 ```bash
 # Pull image mới nhất
@@ -37,11 +92,15 @@ docker pull your-dockerhub-username/ai-jira-dashboard:latest
 docker run -d -p 3000:3000 \
   --env-file .env.local \
   --name jira-dashboard \
+  --restart unless-stopped \
   your-dockerhub-username/ai-jira-dashboard:latest
 ```
 
-## 3. File Docker Compose cho Production
-Bạn có thể sử dụng file `docker-compose.prod.yml` để dễ dàng deploy trên server:
+---
+
+## Production Docker Compose
+
+File `docker-compose.prod.yml`:
 
 ```yaml
 version: '3.8'
@@ -54,4 +113,53 @@ services:
     env_file:
       - .env.local
     restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+```
+
+Chạy:
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+---
+
+## Important Notes
+
+### 1. NEXTAUTH_URL
+Đảm bảo `NEXTAUTH_URL` khớp với domain thực tế:
+- Development: `http://localhost:3000`
+- Production: `https://your-domain.com`
+
+### 2. Callback URL
+Phải thêm Callback URL production vào Atlassian Developer Console:
+```
+https://your-domain.com/api/auth/callback/atlassian
+```
+
+### 3. HTTPS
+Production nên sử dụng HTTPS. Có thể dùng:
+- Nginx reverse proxy với Let's Encrypt
+- Cloudflare SSL
+
+---
+
+## Troubleshooting
+
+### Lỗi "unauthorized_client"
+- Kiểm tra Callback URL đã được thêm đúng trong Atlassian Developer Console
+
+### Lỗi "Missing scopes"
+- Kiểm tra đã thêm đủ scopes: `read:jira-work`, `read:jira-user`, `read:me`
+
+### Lỗi "NEXTAUTH_SECRET missing"
+- Đảm bảo `NEXTAUTH_SECRET` có ít nhất 32 ký tự
+
+### Container không start
+```bash
+# Xem logs
+docker logs jira-dashboard
+
+# Kiểm tra env file
+docker exec jira-dashboard env
 ```
