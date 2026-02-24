@@ -12,6 +12,7 @@ import { EfficiencyRadarChart } from "@/components/charts/EfficiencyRadarChart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WorklogHistoryTable } from "@/components/tables/WorklogHistoryTable";
+import { AIStandupGenerator } from "@/components/reports/AIStandupGenerator";
 
 interface MemberReportViewProps {
     userId: string;
@@ -189,6 +190,9 @@ export function MemberReportView({ userId, userName, projectFilter, hideBackButt
                     </div>
                 </div>
             </div>
+
+            {/* AI Standup Generator */}
+            <AIStandupGenerator userId={userId} userName={userName} projectFilter={projectFilter} />
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <CompletionBarChart data={weeklyCompletions} title="Số task hoàn thành theo tuần" />

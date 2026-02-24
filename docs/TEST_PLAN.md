@@ -67,26 +67,133 @@
 
 ---
 
-## 🎨 Part 4: UI/UX
+## 🤖 Part 4: AI Executive Summary
 
-### 4.1 Settings
+### 4.1 AI Widget Display
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| AI widget visible on Admin Dashboard | ✅ | Below stat cards, above charts |
+| AI widget visible on Project Detail page | ✅ | Below stat cards, above charts |
+| Model dropdown shows 2 options | ✅ | Gemini 2.5 Flash + Pro |
+| Default model is Gemini 2.5 Flash | ✅ | Pre-selected in dropdown |
+| "Tạo báo cáo AI" button visible | ✅ | With sparkle icon |
+
+### 4.2 AI Report Generation — Gemini 2.5 Flash
+*Prerequisite: `GEMINI_API_KEY` set in `.env.local`*
+
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| Click "Tạo báo cáo AI" triggers loading | ✅ | Spinner + "Đang phân tích..." text |
+| Report generates successfully | ✅ | ~15-20s response time |
+| Report contains required sections | ✅ | Overview, Epic Progress, Risks, Actions |
+| Report length sufficient (800+ chars) | ✅ | maxOutputTokens: 8192 |
+| Metadata footer shows info | ✅ | Timestamp, model, data points |
+| Collapse/expand toggle works | ✅ | Chevron button hides/shows |
+
+### 4.3 AI Report Generation — Gemini 2.5 Pro
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| Pro model generates successfully | ✅ | ~60s response (thinking model) |
+| Pro report is more detailed | ✅ | Deeper analysis, color-coded |
+| No empty response error | ✅ | Fixed with thinkingConfig |
+
+### 4.4 AI Error Handling
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| No GEMINI_API_KEY: shows config error | ✅ | Descriptive error message |
+| Invalid API key: shows auth error | ✅ | Descriptive error message |
+| Empty response: shows retry message | ✅ | Suggests switching models |
+
+---
+
+## 🎙️ Part 5: AI Standup Generator
+
+### 5.1 Widget Display
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| AI Standup widget visible on Member Report | ✅ | Between stat cards and charts |
+| Widget has microphone icon + title | ✅ | Green gradient icon, "AI Daily Standup" |
+| Description text shows | ✅ | "Tự động sinh báo cáo standup từ worklog 24h" |
+| "Tạo Standup Report" button visible | ✅ | With sparkle icon |
+
+### 5.2 Standup Generation
+*Prerequisite: `GEMINI_API_KEY` set in `.env.local`*
+
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| Click generates loading state | ✅ | "Đang tạo..." + skeleton animation |
+| Report generates with 3 sections | ✅ | Yesterday, Today, Blockers |
+| Ticket keys highlighted as code | ✅ | [KEY-123] rendered as inline code |
+| Copy button appears after generation | ✅ | "Sao chép" with clipboard icon |
+| Copy copies markdown text | ✅ | navigator.clipboard.writeText |
+| Metadata footer shows info | ✅ | Timestamp, model, worklogs/transitions count |
+| Collapse/expand toggle works | ✅ | ChevronUp/Down toggle |
+
+### 5.3 Standup Error Handling
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| No GEMINI_API_KEY: shows error | ✅ | Red error banner with message |
+| API failure: graceful error display | ✅ | ⚠️ icon with error text |
+
+---
+
+## 🔎 Part 6: AI JQL Search
+
+### 6.1 Header AI Toggle
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| Sparkle button (✨) visible in header | ✅ | Next to search input |
+| Click sparkle toggles AI mode | ✅ | Button changes to primary/filled |
+| AI mode: search icon changes to sparkle | ✅ | Sparkles icon replaces Search icon |
+| AI mode: placeholder text changes | ✅ | "Mô tả bằng tiếng Việt..." |
+| AI mode: input border highlighted | ✅ | border-primary/50, bg-primary/5 |
+| Click again: returns to JQL mode | ✅ | Normal search bar restored |
+| Normal mode: JQL search works as before | ✅ | Redirects to /search?query=JQL |
+
+### 6.2 AI Search Flow
+*Prerequisite: `GEMINI_API_KEY` set in `.env.local`*
+
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| Type natural language + Enter | ✅ | Loading spinner in search bar |
+| AI converts to JQL | ✅ | Redirects to /search with JQL |
+| URL includes AI params | ✅ | ?ai=1&original=query appended |
+| Search page shows AI context banner | ✅ | "Tìm kiếm bằng AI" with sparkle icon |
+| Banner shows original query | ✅ | Italic text with user's question |
+| Banner shows generated JQL | ✅ | Code block with JQL string |
+| JQL search input shows generated query | ✅ | Pre-filled with AI-generated JQL |
+| Can modify and re-search generated JQL | ✅ | Edit JQL + click Search |
+
+### 6.3 AI Search Error Handling
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| API failure: fallback to raw query | ✅ | Searches with original text as JQL |
+| No GEMINI_API_KEY: fallback to raw | ✅ | Graceful degradation |
+
+---
+
+## 🎨 Part 7: UI/UX
+
+### 7.1 Settings
 | Test Case | Status | Notes |
 |-----------|--------|-------|
 | Language switch (vi/en) works | ✅ | All text updates |
 | Theme switch (Light/Dark/System) works | ✅ | Instant update |
-| No "Jira Connection" section | ✅ | Removed (OAuth replaces it) |
+| No AI Settings section in Settings | ✅ | API key via env var only |
 
-### 4.2 Loading & Animations
+### 7.2 Loading & Animations
 | Test Case | Status | Notes |
 |-----------|--------|-------|
 | Loading animation on page transitions | ✅ | LoadingAnimation component |
 | Smooth chart animations | ✅ | Recharts animations work |
+| AI report fade-in animation | ✅ | Framer Motion AnimatePresence |
+| AI loading skeleton pulse animation | ✅ | Staggered delay skeletons |
 
 ---
 
-## ⚙️ Part 5: Technical
+## ⚙️ Part 8: Technical
 
-### 5.1 API Routes
+### 8.1 API Routes
 | Route | Auth Required | Status |
 |-------|---------------|--------|
 | `/api/auth/[...nextauth]` | No | ✅ |
@@ -96,10 +203,25 @@
 | `/api/worklogs` | Yes | ✅ |
 | `/api/users` | Yes | ✅ |
 | `/api/reports/member` | Yes | ✅ |
+| `/api/ai/summary` | Yes | ✅ |
+| `/api/ai/standup` | Yes | ✅ |
+| `/api/ai/jql` | Yes | ✅ |
 
-### 5.2 Build & Deploy
+### 8.2 Build & Deploy
 | Test Case | Status | Notes |
 |-----------|--------|-------|
 | `npm run build` succeeds | ✅ | No TypeScript errors |
 | `npm run dev` works | ✅ | Hot reload functional |
 | Docker build works | ✅ | Multi-stage build |
+| `npx tsc --noEmit` clean | ✅ | Zero TypeScript errors |
+
+### 8.3 AI Service (`lib/ai.ts`)
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| Exports generateExecutiveSummary | ✅ | Executive Summary function |
+| Exports generateStandupReport | ✅ | Standup Generator function |
+| Exports convertNaturalLanguageToJQL | ✅ | JQL conversion function |
+| Default model is gemini-2.5-flash | ✅ | DEFAULT_MODEL constant |
+| Pro model includes thinkingConfig | ✅ | thinkingBudget: 4096 |
+| JQL conversion uses temp 0.1 | ✅ | Very precise for code output |
+| Standup uses temp 0.3 | ✅ | Factual but flexible |

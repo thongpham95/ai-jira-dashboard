@@ -7,6 +7,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { ActivityStream } from "@/components/ActivityStream";
 import { WorkloadBarChart } from "@/components/charts/WorkloadBarChart";
 import { JQLSearch } from "@/components/search/JQLSearch";
+import { AIExecutiveSummary } from "@/components/dashboard/AIExecutiveSummary";
 import { useLanguage } from "@/components/language-provider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -156,6 +157,12 @@ export function AdminDashboard() {
                     description={t.dashboard.totalWeeklyHours}
                 />
             </div>
+
+            {/* AI Executive Summary */}
+            <AIExecutiveSummary
+                projectKey={projectsList.find((p: any) => p.id === selectedProjectId)?.key || selectedProjectId}
+                projectName={projectsList.find((p: any) => p.id === selectedProjectId)?.name}
+            />
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
                 <div className="col-span-1 md:col-span-2 lg:col-span-4">

@@ -10,6 +10,7 @@ import { StatusPieChart } from "@/components/charts/StatusPieChart";
 import { MemberTaskTable } from "@/components/tables/MemberTaskTable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WorkloadBarChart } from "@/components/charts/WorkloadBarChart";
+import { AIExecutiveSummary } from "@/components/dashboard/AIExecutiveSummary";
 
 export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -22,7 +23,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
     const [jiraHost, setJiraHost] = useState<string>("");
 
     useEffect(() => {
-        fetch('/api/settings/jira-host').then(r => r.json()).then(d => setJiraHost(d.host || '')).catch(() => {});
+        fetch('/api/settings/jira-host').then(r => r.json()).then(d => setJiraHost(d.host || '')).catch(() => { });
     }, []);
 
     useEffect(() => {
@@ -129,6 +130,12 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                 <StatCard title="Lỗi (Bug)" value={totalBugs} className="text-red-500" />
                 <StatCard title="Tổng giờ" value={totalHours} description="30 ngày gần nhất" />
             </div>
+
+            {/* AI Executive Summary */}
+            <AIExecutiveSummary
+                projectKey={project.key}
+                projectName={project.name}
+            />
 
             <div className="grid gap-4 md:grid-cols-2">
                 {/* Reusing WorkloadBarChart to show Hours by Member for this project */}

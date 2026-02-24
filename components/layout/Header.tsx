@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Moon, Sun, Search, Globe } from "lucide-react";
+import { Moon, Sun, Search, Globe, Sparkles, Loader2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
@@ -25,26 +25,78 @@ export function Header() {
     const router = useRouter();
     const { data: session, status } = useSession();
     const [searchQuery, setSearchQuery] = React.useState("");
+    const [aiMode, setAiMode] = React.useState(false);
+    const [aiLoading, setAiLoading] = React.useState(false);
 
-    const handleSearch = (e: React.FormEvent) => {
+    const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (searchQuery.trim()) {
+        if (!searchQuery.trim()) return;
+
+        if (aiMode) {
+            // AI mode: convert natural language to JQL
+            setAiLoading(true);
+            try {
+                const res = await fetch("/api/ai/jql", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        query: searchQuery.trim(),
+                        language,
+                    }),
+                });
+                const data = await res.json();
+                if (data.jql) {
+                    router.push(`/search?query=${encodeURIComponent(data.jql)}&ai=1&original=${encodeURIComponent(searchQuery.trim())}`);
+                } else {
+                    router.push(`/search?query=${encodeURIComponent(searchQuery.trim())}`);
+                }
+            } catch {
+                router.push(`/search?query=${encodeURIComponent(searchQuery.trim())}`);
+            } finally {
+                setAiLoading(false);
+            }
+        } else {
             router.push(`/search?query=${encodeURIComponent(searchQuery.trim())}`);
         }
     };
 
+    const aiTooltip = aiMode
+        ? (language === "vi" ? "Tắt AI Search — Quay lại JQL" : "Disable AI Search — Back to JQL")
+        : (language === "vi" ? "Bật AI Search — Tìm kiếm bằng tiếng Việt" : "Enable AI Search — Search in natural language");
+
     return (
         <header className="sticky top-0 z-30 flex h-16 w-full items-center gap-4 border-b bg-background px-6 shadow-sm">
             <div className="flex flex-1 items-center gap-4">
-                <form onSubmit={handleSearch} className="relative w-full max-w-md">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        type="search"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder={t.header.searchPlaceholder}
-                        className="w-full bg-background pl-8 md:w-[300px] lg:w-[400px]"
-                    />
+                <form onSubmit={handleSearch} className="relative w-full max-w-lg flex items-center gap-2">
+                    <div className="relative flex-1">
+                        {aiLoading ? (
+                            <Loader2 className="absolute left-2.5 top-2.5 h-4 w-4 text-primary animate-spin" />
+                        ) : aiMode ? (
+                            <Sparkles className="absolute left-2.5 top-2.5 h-4 w-4 text-primary" />
+                        ) : (
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        )}
+                        <Input
+                            type="search"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder={aiMode
+                                ? (language === "vi" ? "Mô tả bằng tiếng Việt... VD: tìm bug critical tuần này" : "Describe in English... e.g. find critical bugs this week")
+                                : t.header.searchPlaceholder}
+                            className={`w-full pl-8 md:w-[300px] lg:w-[400px] ${aiMode ? 'border-primary/50 bg-primary/5' : 'bg-background'}`}
+                            disabled={aiLoading}
+                        />
+                    </div>
+                    <Button
+                        type="button"
+                        variant={aiMode ? "default" : "outline"}
+                        size="icon"
+                        className={`shrink-0 h-9 w-9 ${aiMode ? 'bg-primary text-primary-foreground' : ''}`}
+                        onClick={() => setAiMode(!aiMode)}
+                        title={aiTooltip}
+                    >
+                        <Sparkles className="h-4 w-4" />
+                    </Button>
                 </form>
             </div>
             <div className="flex items-center gap-2">

@@ -7,12 +7,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { JQLSearch } from "@/components/search/JQLSearch";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/components/language-provider";
+import { Sparkles } from "lucide-react";
 
 function SearchResultsContent() {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const searchParams = useSearchParams();
     const router = useRouter();
     const query = searchParams.get("query") || "";
+    const isAI = searchParams.get("ai") === "1";
+    const originalQuery = searchParams.get("original") || "";
     const [tasks, setTasks] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -64,6 +67,26 @@ function SearchResultsContent() {
                 </div>
             </div>
 
+            {/* AI Search context banner */}
+            {isAI && originalQuery && (
+                <div className="flex items-start gap-3 bg-primary/5 border border-primary/20 rounded-lg p-4">
+                    <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                        <p className="font-medium text-primary">
+                            {language === "vi" ? "Tìm kiếm bằng AI" : "AI-Powered Search"}
+                        </p>
+                        <p className="text-muted-foreground mt-1">
+                            {language === "vi" ? "Câu hỏi: " : "Query: "}
+                            <span className="italic">&quot;{originalQuery}&quot;</span>
+                        </p>
+                        <p className="text-muted-foreground">
+                            {language === "vi" ? "JQL được tạo: " : "Generated JQL: "}
+                            <code className="bg-muted px-1.5 py-0.5 rounded text-xs">{query}</code>
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {error && (
                 <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-md border border-red-200 dark:border-red-900">
                     {t.common.error}: {error}
@@ -94,4 +117,3 @@ export default function SearchPage() {
         </Suspense>
     );
 }
-
