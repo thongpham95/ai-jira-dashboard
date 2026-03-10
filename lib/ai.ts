@@ -381,3 +381,31 @@ export async function convertNaturalLanguageToJQL(request: JQLConversionRequest)
         throw new Error(`AI JQL conversion failed: ${error.message}`);
     }
 }
+
+
+// ================================
+// Test Gemini Connection
+// ================================
+
+export async function testGeminiConnection(apiKey: string, model?: GeminiModel): Promise<boolean> {
+    try {
+        const client = new GoogleGenAI({ apiKey });
+        const selectedModel = model || DEFAULT_MODEL;
+
+        const response = await client.models.generateContent({
+            model: selectedModel,
+            contents: "Say 'OK' if you can read this.",
+            config: {
+                temperature: 0,
+                maxOutputTokens: 16,
+            },
+        });
+
+        const text = response.text?.trim();
+        return !!text && text.length > 0;
+    } catch (error: any) {
+        console.error("Gemini connection test failed:", error);
+        throw new Error(`Connection failed: ${error.message}`);
+    }
+}
+

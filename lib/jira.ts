@@ -26,7 +26,13 @@ export const searchJira = async (jql: string, options: any = {}) => {
 
     // Construct URL
     const baseUrl = getBaseUrl({ accessToken, cloudId });
-    const apiUrl = `${baseUrl}/rest/api/3/search/jql`;
+    let apiUrl = `${baseUrl}/rest/api/3/search/jql`;
+
+    // expand must be a query parameter, NOT in the POST body
+    if (queryOptions.expand) {
+        const expandStr = Array.isArray(queryOptions.expand) ? queryOptions.expand.join(',') : queryOptions.expand;
+        apiUrl += `?expand=${encodeURIComponent(expandStr)}`;
+    }
 
     const body: any = {
         jql,
@@ -34,7 +40,6 @@ export const searchJira = async (jql: string, options: any = {}) => {
         fields: queryOptions.fields || ['summary', 'status', 'assignee', 'project', 'issuetype', 'priority', 'created', 'updated'],
     };
 
-    if (queryOptions.expand) body.expand = queryOptions.expand;
     if (queryOptions.nextPageToken) body.nextPageToken = queryOptions.nextPageToken;
 
     const res = await fetch(apiUrl, {
@@ -86,6 +91,76 @@ export const searchAllJira = async (jql: string, options: any = {}): Promise<any
     }
 
     return { issues: allIssues };
+};
+
+// Fetch changelog for a single issue (with retry for rate limits)
+export const fetchIssueChangelog = async (issueKey: string, options: JiraAuthOptions, retries = 2): Promise<any[]> => {
+    const { accessToken, cloudId } = options;
+    const baseUrl = getBaseUrl({ accessToken, cloudId });
+    const apiUrl = `${baseUrl}/rest/api/3/issue/${issueKey}/changelog`;
+
+    const res = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+            'Authorization': getAuthorizationHeader(accessToken),
+            'Accept': 'application/json'
+        },
+    });
+
+    if (res.status === 429 && retries > 0) {
+        // Rate limited — wait and retry
+        const retryAfter = parseInt(res.headers.get('Retry-After') || '2', 10);
+        await new Promise(r => setTimeout(r, retryAfter * 1000));
+        return fetchIssueChangelog(issueKey, options, retries - 1);
+    }
+
+    if (!res.ok) {
+        console.warn(`Changelog fetch failed for ${issueKey}: ${res.status}`);
+        return [];
+    }
+
+    const data = await res.json();
+    return data.values || [];
+};
+
+const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+// Search issues then fetch changelogs individually (batched with rate limit handling)
+export const searchAllJiraWithChangelog = async (jql: string, options: any = {}): Promise<any> => {
+    const { accessToken, cloudId, ...queryOptions } = options;
+    const authOpts = { accessToken, cloudId };
+
+    // Step 1: Search issues (without changelog) using the standard endpoint
+    const searchData = await searchAllJira(jql, {
+        ...queryOptions,
+        ...authOpts,
+        expand: undefined, // Don't expand changelog in search
+    });
+
+    const issues = searchData.issues || [];
+    console.log(`[PERF] Found ${issues.length} issues, fetching changelogs...`);
+
+    // Step 2: Fetch changelogs in parallel batches (small batches + delay to avoid 429)
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < issues.length; i += BATCH_SIZE) {
+        const batch = issues.slice(i, i + BATCH_SIZE);
+        const changelogs = await Promise.all(
+            batch.map((issue: any) => fetchIssueChangelog(issue.key, authOpts))
+        );
+
+        // Attach changelogs to issues
+        batch.forEach((issue: any, idx: number) => {
+            issue.changelog = { histories: changelogs[idx] };
+        });
+
+        // Rate limit delay between batches
+        if (i + BATCH_SIZE < issues.length) {
+            await delay(200);
+        }
+    }
+
+    console.log(`[PERF] Changelogs fetched for ${issues.length} issues`);
+    return { issues, total: issues.length };
 };
 
 export const countJira = async (jql: string, options: JiraAuthOptions = {}): Promise<number> => {

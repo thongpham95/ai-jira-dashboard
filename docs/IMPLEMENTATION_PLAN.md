@@ -195,6 +195,27 @@ GEMINI_API_KEY=your-gemini-api-key
 - [ ] Issue TL;DR (Summarize ticket description + comments)
 - [ ] AI-powered team insights (cross-member analysis)
 
+### Phase 22: Team Member Performance Evaluation
+- [x] **Data Aggregation Engine** (`lib/jira-performance.ts`)
+  - [x] Fetch issue changelogs via Jira API to get status transitions.
+  - [x] Implement logic to calculate role-specific metrics based on transition history:
+    - Developer Cycle Time: `TODO` -> `IN PROGRESS` -> `CODE REVIEW`.
+    - Tech Lead Cycle Time: `CODE REVIEW` -> `DONE CODE REVIEW` -> `MERGED TO QC`.
+    - QC Cycle Time: `TASK DONE / BUG FIXED` -> `TVT INTERNAL REVIEW` -> `REOPEN` / `CLOSED`.
+    - Quality metrics: First Time Pass Rate, Bug Fix Reopen Rate, Review Effectiveness, Bug Validity Rate.
+- [x] **API Endpoint**
+  - [x] Add `/api/performance` to serve aggregated performance metrics with caching.
+- [x] **UI Implementation (UI/UX Pro Max Standard)**
+  - [x] Ensure minimalist & professional design supporting Light/Dark Mode using `ui-ux-pro-max` guidelines.
+  - [x] Add Performance Dashboard layout.
+  - [x] Add Recharts visualizations for Cycle Times and Throughput.
+  - [x] Implement color indicators & animations to **highlight anomalies** (e.g., long code reviews, high reopen rates).
+- [x] **AI Performance Review Integration**
+  - [x] Add `/api/ai/performance-review` endpoint.
+  - [x] Generate natural language performance evaluation text from metrics.
+  - [x] Display AI summary on the UI.
+
+
 ---
 
 ## Progress Log
@@ -205,3 +226,5 @@ GEMINI_API_KEY=your-gemini-api-key
 | Feb 2026 | Phase 16 | ✅ Complete | AI Executive Summary (Gemini 2.5) |
 | Feb 24, 2026 | Phase 17 | ✅ Complete | AI Standup Generator |
 | Feb 24, 2026 | Phase 18 | ✅ Complete | AI JQL Search (Natural Language) |
+| Mar 10, 2026 | Phase 22 | ✅ Complete | Team Member Performance Evaluation |
+

@@ -34,10 +34,16 @@ CLAUDE.md
 # Docker
 Dockerfile
 docker-compose.yml
+docker-compose.prod.yml
 .dockerignore
 
 # Environment (we'll copy this separately)
 # .env.local
+
+# Agent/Skills
+.agent/
+.claude/
+.gemini/
 
 # Scripts
 scripts/

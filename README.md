@@ -15,6 +15,7 @@ Dashboard nội bộ giúp Team Lead/PM theo dõi tiến độ và hiệu suất
 - **AI Executive Summary**: Phân tích tổng quan dự án — Tiến độ Epic, Rủi ro, Đề xuất hành động
 - **AI Standup Generator**: Tự động sinh daily standup report từ worklog 24h (Yesterday/Today/Blockers)
 - **AI JQL Search**: Tìm kiếm bằng ngôn ngữ tự nhiên (tiếng Việt/English) — AI chuyển thành JQL
+- **AI Performance Review**: Đánh giá hiệu suất cá nhân dựa trên phân tích dữ liệu lịch sử cycle time, quality metrics từ Jira.
 - **Dual Model Support**: Gemini 2.5 Flash (nhanh, miễn phí) + Gemini 2.5 Pro (phân tích sâu)
 
 ### UX

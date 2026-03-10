@@ -4,18 +4,34 @@
 RESOLVED ✅
 
 ## Bug Title
-Gemini 2.5 Pro returns empty response ("Unable to generate summary.")
+Performance Dashboard hiển thị 0 data cho tất cả tab — changelog không được trả về từ Jira API
 
-## Root Cause
-Gemini 2.5 Pro is a "thinking model" that uses internal reasoning tokens. With `maxOutputTokens: 2048`, the thinking tokens consumed the entire budget → `response.text` was empty.
+## Bug Description
+Trang Performance hiển thị "Issues phân tích: 1287" nhưng Developer (0), Tech Lead (0), QC (0).
+AI Review cũng không có dữ liệu vì metrics = 0.
+
+## Root Cause Analysis
+
+**Cả hai Jira search endpoint đều KHÔNG trả changelog:**
+- `POST /search/jql` (mới) — `expand=changelog` không hoạt động (trả `changelog: undefined`)
+- `POST /search` (cũ) — đã bị deprecated/removed, trả 400 Invalid payload
 
 ## Fix Applied
-- **File Changed**: `lib/ai.ts` — `generateExecutiveSummary()`
-  - `maxOutputTokens`: 2048 → **8192** (allows longer, more detailed reports)
-  - Added `thinkingConfig: { thinkingBudget: 4096 }` for Pro model
-  - Replaced silent "Unable to generate summary." fallback with descriptive error
 
-## Test Results
-- ✅ **Gemini 2.5 Flash**: Generates report in ~15-20s, ~800-1000 chars
-- ✅ **Gemini 2.5 Pro**: Generates report in ~60s, ~1000-1200 chars, detailed analysis with color-coded Epic progress
-- ✅ Both models produce longer, more detailed reports than before
+**Two-step approach:** Search issues (no changelog) → Fetch changelogs riêng per-issue.
+
+### Files Changed:
+1. **`lib/jira.ts`**:
+   - Thêm `fetchIssueChangelog()` — GET `/rest/api/3/issue/{key}/changelog` với retry cho 429
+   - Sửa `searchAllJiraWithChangelog()` — batch 5 requests + 200ms delay giữa batches
+   - Xóa legacy search endpoint code
+
+2. **`lib/jira-performance.ts`**:
+   - Import `searchAllJiraWithChangelog` thay vì `searchAllJira`
+   - Cleanup debug logs
+
+### Test Results:
+- ✅ `POST /api/performance 200` — 460 issues, 3316 transitions, 400 issues có changelog
+- ✅ `POST /api/ai/performance-review 200` — AI review thành công
+- ✅ Build pass
+- ✅ Status names khớp với hardcoded list (TODO, IN PROGRESS, CODE REVIEW, DONE CODE REVIEW, MERGED TO QC, TASK DONE / BUG FIXED, TVT INTERNAL REVIEW, REOPEN, CLOSED)

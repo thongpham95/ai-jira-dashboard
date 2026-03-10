@@ -225,3 +225,31 @@
 | Pro model includes thinkingConfig | ✅ | thinkingBudget: 4096 |
 | JQL conversion uses temp 0.1 | ✅ | Very precise for code output |
 | Standup uses temp 0.3 | ✅ | Factual but flexible |
+
+---
+
+## 📈 Part 9: Team Member Performance Evaluation
+
+### 9.1 Data Aggregation & Logic
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| Parses changelog correctly | PENDING | Unit test for transition timestamp differences |
+| Calculates Dev Cycle Time correctly | PENDING | `TODO` -> `IN PROGRESS` -> `CODE REVIEW` |
+| Calculates TL Cycle Time correctly | PENDING | `CODE REVIEW` -> `DONE CODE REVIEW` -> `MERGED TO QC` |
+| Calculates QC Cycle Time correctly | PENDING | `TASK DONE` -> `TVT INTERNAL REVIEW` -> `REOPEN`/`CLOSED` |
+| Quality Metrics (Pass rate, Reopen rate) accurate | PENDING | Formulas verified against Jira history |
+
+### 9.2 UI/UX Pro Max Guidelines
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| Meets ui-ux-pro-max design constraints | PENDING | Minimalist & professional |
+| Adapts correctly to Light/Dark Mode | PENDING | Contrast verified |
+| Anomalies clearly highlighted | PENDING | Uses designated color/animation for issues (e.g. extremely long review) |
+| Performance charts render accurately | PENDING | Uses Recharts |
+
+### 9.3 AI Performance Summary
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| `/api/ai/performance-review` generates summary | PENDING | Generates text based on metrics |
+| AI widget displays output properly | PENDING | Animated display & Markdown format |
+
