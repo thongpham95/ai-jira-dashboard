@@ -1,7 +1,7 @@
 # Bug Report
 
 ## Status
-AWAITING VERIFICATION
+FIX HARDENED (2026-04-07)
 
 ## Bug Title
 502 Bad Gateway Error on Atlassian OAuth Callback Route
@@ -71,3 +71,16 @@ We successfully mitigated the Nginx 502 Bad Gateway error by implementing **Opti
 - **Files Changed**: 
   - `app/api/auth/[...nextauth]/route.ts`: Removed `token.refreshToken = account.refresh_token;` from the `jwt` callback securely. This prevents the large Atlassian `refresh_token` from being included in the NextAuth JWT session string, vastly reducing the overall payload that Nginx has to parse in the `Set-Cookie` headers.
 - **Verification**: Please pull the code, push/deploy to production, and initiate a new login flow to verify if the 502 Bad Gateway is resolved.
+
+## Additional Hardening (2026-04-07)
+
+Three follow-up improvements were applied to make the fix more robust:
+
+1. **Removed `offline_access` scope**: The original fix discarded the refresh token but still requested it from Atlassian via the `offline_access` scope. Removing this scope prevents Atlassian from generating the large refresh token in the first place, reducing the overall token exchange payload.
+
+2. **Added token expiration detection**: `expiresAt` was stored but never checked. When the access token expires (~1 hour), API calls would silently fail with 401. The JWT callback now detects expired tokens and clears `accessToken`, setting an `error: "TokenExpired"` flag.
+
+3. **Exposed token error in session**: The session callback now passes `session.error` to the client, allowing the frontend to detect expired sessions and prompt re-login.
+
+- **Files Changed**: `app/api/auth/[...nextauth]/route.ts`
+- **Nginx Recommendation**: Option 1 (increase `proxy_buffer_size`) is still recommended for production environments as a defense-in-depth measure.

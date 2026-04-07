@@ -9,7 +9,7 @@ export const authOptions: NextAuthOptions = {
             clientSecret: process.env.ATLASSIAN_CLIENT_SECRET!,
             authorization: {
                 params: {
-                    scope: "read:jira-work read:jira-user read:me offline_access",
+                    scope: "read:jira-work read:jira-user read:me",
                 },
             },
         }),
@@ -35,25 +35,28 @@ export const authOptions: NextAuthOptions = {
     ],
     callbacks: {
         async jwt({ token, account }) {
-            // Persist the OAuth access_token and or the user id to the token right after signin
             if (account) {
                 token.accessToken = account.access_token;
-                // Removed refreshToken to reduce cookie size and avoid Nginx 502 Bad Gateway (Header too large)
                 token.expiresAt = account.expires_at;
                 token.cloudId = await fetchCloudId(account.access_token!);
+            }
+            // Force re-authentication when access token has expired
+            if (token.expiresAt && Date.now() >= (token.expiresAt as number) * 1000) {
+                return { ...token, accessToken: undefined, error: "TokenExpired" };
             }
             return token;
         },
         async session({ session, token }) {
-            // Send properties to the client, like an access_token and user id from a provider.
             if (session.user) {
                 // @ts-ignore
-                session.user.id = token.sub; // Ensure user ID is passed
+                session.user.id = token.sub;
                 // @ts-ignore
                 session.accessToken = token.accessToken;
                 // @ts-ignore
                 session.cloudId = token.cloudId;
             }
+            // @ts-ignore - expose token error so client can detect expired sessions
+            if (token.error) session.error = token.error;
             return session;
         },
     },
