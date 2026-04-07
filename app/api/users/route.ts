@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getUsers } from '@/lib/jira';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { withCache, createCacheKey, CACHE_TTL } from '@/lib/cache';
 
 export async function GET(request: Request) {
     try {
@@ -15,12 +16,17 @@ export async function GET(request: Request) {
         // @ts-ignore
         const cloudId = session?.cloudId;
 
-        const users = await getUsers({
-            accessToken,
-            cloudId,
-            projectKey,
-            query
-        });
+        if (!accessToken || !cloudId) {
+            return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+        }
+
+        // Use cache for users (rarely changes)
+        const cacheKey = createCacheKey('users', { cloudId, projectKey, query });
+        const users = await withCache(
+            cacheKey,
+            () => getUsers({ accessToken, cloudId, projectKey, query }),
+            { ttlMs: CACHE_TTL.USERS }
+        );
 
         return NextResponse.json(users);
     } catch (error: any) {

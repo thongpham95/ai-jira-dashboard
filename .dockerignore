@@ -38,7 +38,9 @@ docker-compose.prod.yml
 .dockerignore
 
 # Environment (we'll copy this separately)
-# .env.local
+.env
+.env.local
+.env.*
 
 # Agent/Skills
 .agent/

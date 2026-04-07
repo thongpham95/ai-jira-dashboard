@@ -28,11 +28,21 @@ Tính năng Đánh giá Hiệu suất Thành viên Nhóm là một phần mở r
 - [ ] **Tốc độ phản hồi & Khối lượng công việc (Throughput)**:
   - **Dev / QC / TL**: Tổng số story points hoặc số lượng issue hoàn thành trong mỗi sprint.
   - **TL**: Thời gian tính đến lần Review đầu tiên (Time to First Review).
-- [ ] **Dashboard Đánh giá Hiệu suất**: Các biểu đồ trực quan (Biểu đồ cột, Biểu đồ đường) cho các chỉ số trên của từng user theo thời gian.
+- [ ] **Theo dõi Công việc Thời gian thực (Real-time Active Tasks)**:
+  - Hiển thị danh sách các thành viên trong nhóm và các task họ đang thực sự xử lý (Status thuộc nhóm `In Progress`).
+  - Thông tin hiển thị: Avatar, Tên thành viên, Jira Issue Key, Summary, Trạng thái hiện tại, và Thời gian đã ở trạng thái đó.
+  - Tự động cập nhật (polling) hoặc có cơ chế làm mới dữ liệu nhanh chóng để đảm bảo tính "real-time".
+- [ ] **Trang Quản lý Real-Time Tasks Chuyên biệt (Dedicated Page)**:
+  - Cho phép người dùng chọn bất kỳ nhân sự nào hoặc xem toàn bộ dự án để theo dõi tiến độ chi tiết.
+  - Đảm bảo tính năng này công khai cho mọi người dùng đã kết nối với Jira (không giới hạn quyền Admin).
+  - Kết hợp với các biểu đồ phân tích (vd: Trạng thái hiện tại tỷ lệ như thế nào) và tính năng AI tóm tắt Insights cho các tasks đang hoạt động.
+- [ ] **Dashboard Đánh giá Hiệu suất**: Các biểu đồ trực quan (Biểu đồ cột, Biểu đồ đường) cho các chỉ số trên của từng user theo thời gian. Khối "Active Tasks" (Công việc đang làm) được đặt ở vị trí dễ nhìn thấy nhất.
 
-### Tính năng Bổ sung (Nice-to-have / Post-MVP)
 - [ ] **Đánh giá Hiệu suất Tổng hợp bằng AI**: Tạo ra một đoạn văn bản tóm tắt đánh giá hiệu suất của một thành viên trong một khoảng thời gian nhất định dựa trên các chỉ số tính toán được.
 - [ ] **So sánh chung với Nhóm (Peer Comparison)**: So sánh ẩn danh các chỉ số của một cá nhân với mức trung bình của toàn nhóm.
+
+### Tính năng Bổ sung (Nice-to-have / Post-MVP)
+- (Chưa có tính năng nào trong giai đoạn này)
 
 ## 5. Luồng Người dùng (User Flows)
 

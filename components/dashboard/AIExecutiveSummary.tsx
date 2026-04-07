@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sparkles, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { motion, AnimatePresence } from "framer-motion";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface AIExecutiveSummaryProps {
     projectKey: string;
@@ -60,76 +62,7 @@ export function AIExecutiveSummary({ projectKey, projectName }: AIExecutiveSumma
         }
     }, [projectKey, model, language]);
 
-    // Simple markdown renderer
-    const renderMarkdown = (text: string) => {
-        const lines = text.split("\n");
-        return lines.map((line, i) => {
-            // Headers
-            if (line.startsWith("### ")) {
-                return (
-                    <h3 key={i} className="text-lg font-semibold mt-5 mb-2 flex items-center gap-2 text-foreground">
-                        {line.replace("### ", "")}
-                    </h3>
-                );
-            }
-            if (line.startsWith("## ")) {
-                return (
-                    <h2 key={i} className="text-xl font-bold mt-6 mb-3 text-foreground">
-                        {line.replace("## ", "")}
-                    </h2>
-                );
-            }
-            // Bold
-            if (line.startsWith("- **")) {
-                const parts = line.replace("- **", "").split("**");
-                return (
-                    <div key={i} className="flex items-start gap-2 py-1 pl-2">
-                        <span className="text-primary mt-1.5 text-xs">●</span>
-                        <p className="text-sm text-muted-foreground">
-                            <strong className="text-foreground">{parts[0]}</strong>
-                            {parts.slice(1).join("")}
-                        </p>
-                    </div>
-                );
-            }
-            // List items
-            if (line.startsWith("- ")) {
-                return (
-                    <div key={i} className="flex items-start gap-2 py-1 pl-2">
-                        <span className="text-primary mt-1.5 text-xs">●</span>
-                        <p className="text-sm text-muted-foreground">{line.replace("- ", "")}</p>
-                    </div>
-                );
-            }
-            // Numbered items
-            if (/^\d+\.\s/.test(line)) {
-                return (
-                    <div key={i} className="flex items-start gap-2 py-1 pl-2">
-                        <span className="text-primary font-semibold text-sm min-w-[1.25rem]">
-                            {line.match(/^(\d+)\./)?.[1]}.
-                        </span>
-                        <p className="text-sm text-muted-foreground">
-                            {line.replace(/^\d+\.\s/, "")}
-                        </p>
-                    </div>
-                );
-            }
-            // Separators
-            if (line.startsWith("---")) {
-                return <hr key={i} className="my-4 border-border" />;
-            }
-            // Empty lines
-            if (line.trim() === "") {
-                return <div key={i} className="h-2" />;
-            }
-            // Regular text
-            return (
-                <p key={i} className="text-sm text-muted-foreground leading-relaxed">
-                    {line}
-                </p>
-            );
-        });
-    };
+    // renderMarkdown removed in favor of ReactMarkdown
 
     return (
         <Card className="border-2 border-dashed border-primary/20 bg-gradient-to-br from-primary/5 via-background to-primary/5">
@@ -269,7 +202,9 @@ export function AIExecutiveSummary({ projectKey, projectName }: AIExecutiveSumma
                             className="prose prose-sm dark:prose-invert max-w-none mt-2"
                         >
                             <div className="p-4 rounded-lg bg-card border">
-                                {renderMarkdown(summary)}
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                    {summary}
+                                </ReactMarkdown>
                             </div>
                             {/* Metadata footer */}
                             {metadata && (

@@ -3,6 +3,7 @@
 // Optional: gemini-2.5-pro (deeper analysis)
 
 import { GoogleGenAI } from "@google/genai";
+import { withCache, createCacheKey, CACHE_TTL } from "./cache";
 
 export type GeminiModel = "gemini-2.5-flash" | "gemini-2.5-pro";
 
@@ -147,47 +148,57 @@ export async function generateExecutiveSummary(request: AISummaryRequest): Promi
     const language = request.language || "vi";
     const isPro = model.includes("pro");
 
+    const cacheKey = createCacheKey("ai:summary", {
+        projectName: request.projectData.projectName,
+        sprintName: request.projectData.sprintInfo?.name,
+        epicFingerprint: request.projectData.epics.map(e => `${e.key}:${e.doneTasks}/${e.totalTasks}`).join(","),
+        model,
+        language,
+    });
+
     const prompt = buildPrompt(request.projectData, language);
 
-    try {
-        const response = await client.models.generateContent({
-            model,
-            contents: prompt,
-            config: {
-                temperature: 0.3,
-                maxOutputTokens: 8192,
-                // Gemini 2.5 Pro is a "thinking model" — it needs a thinking budget
-                // to reason internally before producing output. Without this, the
-                // thinking tokens consume the entire output budget → empty response.
-                ...(isPro ? {
-                    thinkingConfig: {
-                        thinkingBudget: 4096,
-                    },
-                } : {}),
-            },
-        });
+    return withCache(cacheKey, async () => {
+        try {
+            const response = await client.models.generateContent({
+                model,
+                contents: prompt,
+                config: {
+                    temperature: 0.3,
+                    maxOutputTokens: 8192,
+                    // Gemini 2.5 Pro is a "thinking model" — it needs a thinking budget
+                    // to reason internally before producing output. Without this, the
+                    // thinking tokens consume the entire output budget → empty response.
+                    ...(isPro ? {
+                        thinkingConfig: {
+                            thinkingBudget: 4096,
+                        },
+                    } : {}),
+                },
+            });
 
-        const text = response.text;
-        if (!text || text.trim().length === 0) {
-            throw new Error(
-                `Model ${model} returned an empty response. ` +
-                (isPro
-                    ? "Gemini Pro may be overloaded. Try again or switch to Gemini Flash."
-                    : "Please try again.")
-            );
-        }
+            const text = response.text;
+            if (!text || text.trim().length === 0) {
+                throw new Error(
+                    `Model ${model} returned an empty response. ` +
+                    (isPro
+                        ? "Gemini Pro may be overloaded. Try again or switch to Gemini Flash."
+                        : "Please try again.")
+                );
+            }
 
-        return text;
-    } catch (error: any) {
-        console.error("Gemini API Error:", error);
-        if (error.message?.includes("API_KEY")) {
-            throw new Error("Invalid Gemini API Key. Please check your settings.");
+            return text;
+        } catch (error: any) {
+            console.error("Gemini API Error:", error);
+            if (error.message?.includes("API_KEY")) {
+                throw new Error("Invalid Gemini API Key. Please check your settings.");
+            }
+            if (error.message?.includes("quota") || error.message?.includes("429")) {
+                throw new Error("Gemini API quota exceeded. Please try again later or switch to a different model.");
+            }
+            throw new Error(`AI generation failed: ${error.message}`);
         }
-        if (error.message?.includes("quota") || error.message?.includes("429")) {
-            throw new Error("Gemini API quota exceeded. Please try again later or switch to a different model.");
-        }
-        throw new Error(`AI generation failed: ${error.message}`);
-    }
+    }, { ttlMs: CACHE_TTL.AI_SUMMARY });
 }
 
 
@@ -267,39 +278,50 @@ export async function generateStandupReport(request: StandupRequest): Promise<st
     const language = request.language || "vi";
     const isPro = model.includes("pro");
 
+    const today = new Date().toISOString().split("T")[0];
+    const cacheKey = createCacheKey("ai:standup", {
+        memberName: request.memberName,
+        worklogFingerprint: request.worklogs.map(w => `${w.issueKey}:${w.date}`).join(","),
+        today,
+        model,
+        language,
+    });
+
     const prompt = buildStandupPrompt(request, language);
 
-    try {
-        const response = await client.models.generateContent({
-            model,
-            contents: prompt,
-            config: {
-                temperature: 0.3,
-                maxOutputTokens: 4096,
-                ...(isPro ? {
-                    thinkingConfig: {
-                        thinkingBudget: 2048,
-                    },
-                } : {}),
-            },
-        });
+    return withCache(cacheKey, async () => {
+        try {
+            const response = await client.models.generateContent({
+                model,
+                contents: prompt,
+                config: {
+                    temperature: 0.3,
+                    maxOutputTokens: 4096,
+                    ...(isPro ? {
+                        thinkingConfig: {
+                            thinkingBudget: 2048,
+                        },
+                    } : {}),
+                },
+            });
 
-        const text = response.text;
-        if (!text || text.trim().length === 0) {
-            throw new Error(`Model ${model} returned an empty response. Please try again.`);
-        }
+            const text = response.text;
+            if (!text || text.trim().length === 0) {
+                throw new Error(`Model ${model} returned an empty response. Please try again.`);
+            }
 
-        return text;
-    } catch (error: any) {
-        console.error("Gemini Standup Error:", error);
-        if (error.message?.includes("API_KEY")) {
-            throw new Error("Invalid Gemini API Key. Please check your settings.");
+            return text;
+        } catch (error: any) {
+            console.error("Gemini Standup Error:", error);
+            if (error.message?.includes("API_KEY")) {
+                throw new Error("Invalid Gemini API Key. Please check your settings.");
+            }
+            if (error.message?.includes("quota") || error.message?.includes("429")) {
+                throw new Error("Gemini API quota exceeded. Please try again later.");
+            }
+            throw new Error(`AI generation failed: ${error.message}`);
         }
-        if (error.message?.includes("quota") || error.message?.includes("429")) {
-            throw new Error("Gemini API quota exceeded. Please try again later.");
-        }
-        throw new Error(`AI generation failed: ${error.message}`);
-    }
+    }, { ttlMs: CACHE_TTL.AI_SUMMARY });
 }
 
 
@@ -407,5 +429,273 @@ export async function testGeminiConnection(apiKey: string, model?: GeminiModel):
         console.error("Gemini connection test failed:", error);
         throw new Error(`Connection failed: ${error.message}`);
     }
+}
+
+
+// ================================
+// Issue TL;DR (Summarize ticket)
+// ================================
+
+export interface IssueTLDRRequest {
+    issue: {
+        key: string;
+        summary: string;
+        description: string | null;
+        issueType: string;
+        status: string;
+        priority: string;
+        assignee: string | null;
+        reporter: string | null;
+        created: string;
+        updated: string;
+        labels: string[];
+        components: string[];
+    };
+    comments: Array<{
+        author: string;
+        body: string;
+        created: string;
+    }>;
+    model?: GeminiModel;
+    language?: "vi" | "en";
+}
+
+function buildIssueTLDRPrompt(data: IssueTLDRRequest, language: "vi" | "en"): string {
+    const lang = language === "vi" ? "Vietnamese" : "English";
+
+    return `You are an expert at summarizing Jira tickets. Create a concise TL;DR summary of the following issue.
+
+**RESPOND IN ${lang}.**
+
+## Issue Details
+- **Key:** ${data.issue.key}
+- **Type:** ${data.issue.issueType}
+- **Summary:** ${data.issue.summary}
+- **Status:** ${data.issue.status}
+- **Priority:** ${data.issue.priority}
+- **Assignee:** ${data.issue.assignee || "Unassigned"}
+- **Reporter:** ${data.issue.reporter || "Unknown"}
+- **Created:** ${data.issue.created}
+- **Updated:** ${data.issue.updated}
+- **Labels:** ${data.issue.labels.length > 0 ? data.issue.labels.join(", ") : "None"}
+- **Components:** ${data.issue.components.length > 0 ? data.issue.components.join(", ") : "None"}
+
+### Description
+${data.issue.description || "(No description provided)"}
+
+### Comments (${data.comments.length} total)
+${data.comments.length > 0 ? data.comments.slice(-10).map(c =>
+        `**${c.author}** (${c.created}):\n${c.body.substring(0, 500)}${c.body.length > 500 ? "..." : ""}`
+    ).join("\n\n") : "(No comments)"}
+
+---
+
+**Generate a TL;DR with these sections:**
+
+### 📝 Tóm tắt / Summary
+A 2-3 sentence summary of what this issue is about and its current state.
+
+### 🎯 Mục tiêu / Objective
+What needs to be accomplished? What is the expected outcome?
+
+### 💬 Điểm chính từ thảo luận / Key Discussion Points
+Top 2-3 important points or decisions from the comments (if any).
+
+### ⏭️ Bước tiếp theo / Next Steps
+What action should be taken next based on current status and discussion?
+
+**Rules:**
+- Be concise and actionable
+- Highlight any blockers or concerns mentioned
+- Do not invent information not present in the data
+- Keep total response under 300 words`;
+}
+
+export async function generateIssueTLDR(request: IssueTLDRRequest): Promise<string> {
+    const client = getClient();
+    const model = request.model || DEFAULT_MODEL;
+    const language = request.language || "vi";
+
+    const cacheKey = createCacheKey("ai:tldr", {
+        issueKey: request.issue.key,
+        issueUpdated: request.issue.updated,
+        commentCount: request.comments.length,
+        model,
+        language,
+    });
+
+    const prompt = buildIssueTLDRPrompt(request, language);
+
+    return withCache(cacheKey, async () => {
+        try {
+            const response = await client.models.generateContent({
+                model,
+                contents: prompt,
+                config: {
+                    temperature: 0.3,
+                    maxOutputTokens: 2048,
+                },
+            });
+
+            const text = response.text?.trim();
+            if (!text) {
+                throw new Error("AI could not generate summary. Please try again.");
+            }
+
+            return text;
+        } catch (error: any) {
+            console.error("Gemini Issue TL;DR Error:", error);
+            if (error.message?.includes("API_KEY")) {
+                throw new Error("GEMINI_API_KEY is not configured.");
+            }
+            throw new Error(`AI summary failed: ${error.message}`);
+        }
+    }, { ttlMs: CACHE_TTL.AI_SUMMARY });
+}
+
+
+// ================================
+// AI Team Insights (Cross-member analysis)
+// ================================
+
+export interface TeamInsightsRequest {
+    teamData: {
+        projectName: string;
+        dateRange: { start: string; end: string };
+        members: Array<{
+            name: string;
+            role: string;
+            issuesCompleted: number;
+            hoursLogged: number;
+            avgCycleTimeHours: number;
+            firstTimePassRate: number;
+            reopenCount: number;
+        }>;
+        teamAverages: {
+            issuesCompleted: number;
+            hoursLogged: number;
+            avgCycleTimeHours: number;
+            firstTimePassRate: number;
+        };
+        highlights: {
+            topPerformer: string;
+            mostImproved: string;
+            highestWorkload: string;
+            mostReopens: string;
+        };
+    };
+    model?: GeminiModel;
+    language?: "vi" | "en";
+}
+
+function buildTeamInsightsPrompt(data: TeamInsightsRequest["teamData"], language: "vi" | "en"): string {
+    const lang = language === "vi" ? "Vietnamese" : "English";
+
+    return `You are an expert team performance analyst. Analyze the following team metrics and provide actionable insights.
+
+**RESPOND IN ${lang}.**
+
+## Project: ${data.projectName}
+## Period: ${data.dateRange.start} → ${data.dateRange.end}
+
+### Team Members Performance
+${data.members.map(m => `
+**${m.name}** (${m.role})
+- Issues Completed: ${m.issuesCompleted}
+- Hours Logged: ${m.hoursLogged}h
+- Avg Cycle Time: ${m.avgCycleTimeHours}h
+- First Time Pass Rate: ${m.firstTimePassRate}%
+- Reopens: ${m.reopenCount}
+`).join("\n")}
+
+### Team Averages
+- Issues/Member: ${data.teamAverages.issuesCompleted}
+- Hours/Member: ${data.teamAverages.hoursLogged}h
+- Avg Cycle Time: ${data.teamAverages.avgCycleTimeHours}h
+- Avg Pass Rate: ${data.teamAverages.firstTimePassRate}%
+
+### Notable Highlights
+- Top Performer: ${data.highlights.topPerformer}
+- Most Improved: ${data.highlights.mostImproved}
+- Highest Workload: ${data.highlights.highestWorkload}
+- Most Reopens: ${data.highlights.mostReopens}
+
+---
+
+**Generate insights with these sections:**
+
+### 🏆 Hiệu suất Nhóm / Team Performance Summary
+A 2-3 sentence overview of how the team performed this period.
+
+### 🌟 Điểm nổi bật / Highlights
+- Who exceeded expectations and why
+- Any notable improvements or achievements
+
+### ⚠️ Điểm cần cải thiện / Areas for Improvement
+- Members who may need support (high reopen rate, slow cycle time)
+- Workload imbalances that need addressing
+
+### 📊 So sánh & Xu hướng / Comparisons & Trends
+- How do individual members compare to team averages?
+- Any patterns or correlations observed?
+
+### 💡 Đề xuất / Recommendations
+- 3-5 specific, actionable recommendations for the team lead
+- Consider pairing, training, workload redistribution
+
+**Rules:**
+- Be constructive, not critical
+- Focus on team improvement, not blame
+- Back up observations with data
+- Keep total response under 400 words`;
+}
+
+export async function generateTeamInsights(request: TeamInsightsRequest): Promise<string> {
+    const client = getClient();
+    const model = request.model || DEFAULT_MODEL;
+    const language = request.language || "vi";
+    const isPro = model.includes("pro");
+
+    const cacheKey = createCacheKey("ai:team", {
+        projectName: request.teamData.projectName,
+        dateStart: request.teamData.dateRange.start,
+        dateEnd: request.teamData.dateRange.end,
+        memberFingerprint: request.teamData.members.map(m => `${m.name}:${m.issuesCompleted}:${m.hoursLogged}`).join(","),
+        model,
+        language,
+    });
+
+    const prompt = buildTeamInsightsPrompt(request.teamData, language);
+
+    return withCache(cacheKey, async () => {
+        try {
+            const response = await client.models.generateContent({
+                model,
+                contents: prompt,
+                config: {
+                    temperature: 0.4,
+                    maxOutputTokens: 4096,
+                    ...(isPro ? {
+                        thinkingConfig: {
+                            thinkingBudget: 2048,
+                        },
+                    } : {}),
+                },
+            });
+
+            const text = response.text?.trim();
+            if (!text) {
+                throw new Error("AI could not generate team insights. Please try again.");
+            }
+
+            return text;
+        } catch (error: any) {
+            console.error("Gemini Team Insights Error:", error);
+            if (error.message?.includes("API_KEY")) {
+                throw new Error("GEMINI_API_KEY is not configured.");
+            }
+            throw new Error(`AI team insights failed: ${error.message}`);
+        }
+    }, { ttlMs: CACHE_TTL.AI_SUMMARY });
 }
 

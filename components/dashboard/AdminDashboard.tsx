@@ -1,18 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Users, FolderKanban, CheckCircle2, AlertCircle } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { ActivityStream } from "@/components/ActivityStream";
 import { WorkloadBarChart } from "@/components/charts/WorkloadBarChart";
+import { TeamComparisonChart } from "@/components/charts/TeamComparisonChart";
 import { JQLSearch } from "@/components/search/JQLSearch";
 import { AIExecutiveSummary } from "@/components/dashboard/AIExecutiveSummary";
+import { EnhancedActiveTasks } from "@/components/dashboard/EnhancedActiveTasks";
+import { TimeRangeSelector, TimeRange, getDefaultTimeRange } from "@/components/ui/time-range-selector";
+import { ExportReports, prepareExportData, ExportData } from "@/components/reports/ExportReports";
 import { useLanguage } from "@/components/language-provider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export function AdminDashboard() {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [stats, setStats] = useState({
         activeProjects: 0,
         openIssues: 0,
@@ -23,6 +27,35 @@ export function AdminDashboard() {
     const [selectedProjectId, setSelectedProjectId] = useState<string>("all");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Time Range state for filtering
+    const [timeRange, setTimeRange] = useState<TimeRange>(() =>
+        getDefaultTimeRange("week", language as "vi" | "en")
+    );
+
+    // Export data state
+    const exportData = useMemo<ExportData>(() => {
+        const vi = language === "vi";
+        return prepareExportData(
+            vi ? "Báo cáo Tổng quan Dashboard" : "Dashboard Overview Report",
+            [
+                { key: "metric", label: vi ? "Chỉ số" : "Metric" },
+                { key: "value", label: vi ? "Giá trị" : "Value" },
+                { key: "description", label: vi ? "Mô tả" : "Description" },
+            ],
+            [
+                { metric: t.dashboard.activeProjects, value: stats.activeProjects, description: t.dashboard.projectsFromJira },
+                { metric: t.dashboard.openIssues, value: stats.openIssues, description: t.dashboard.unresolvedIssues },
+                { metric: t.dashboard.criticalBugs, value: stats.criticalBugs, description: t.dashboard.highPriorityBugs },
+                { metric: t.dashboard.weeklyHours, value: stats.totalHours, description: t.dashboard.totalWeeklyHours },
+            ],
+            {
+                [vi ? "Khoảng thời gian" : "Time Range"]: timeRange.label,
+                [vi ? "Tổng dự án" : "Total Projects"]: stats.activeProjects,
+                [vi ? "Issues chưa xử lý" : "Open Issues"]: stats.openIssues,
+            }
+        );
+    }, [stats, t, language, timeRange.label]);
 
     useEffect(() => {
         async function fetchData() {
@@ -41,12 +74,7 @@ export function AdminDashboard() {
                     }
                 }
 
-                // 2. Fetch Issues Stats + Weekly Worklogs (Parallel)
-                const weekStart = new Date();
-                weekStart.setDate(weekStart.getDate() - 7);
-                const weekStartStr = weekStart.toISOString().split('T')[0];
-                const todayStr = new Date().toISOString().split('T')[0];
-
+                // 2. Fetch Issues Stats + Worklogs based on time range
                 const [openIssuesRes, bugsRes, worklogsRes] = await Promise.all([
                     fetch('/api/issues/count', {
                         method: 'POST',
@@ -61,7 +89,7 @@ export function AdminDashboard() {
                     fetch('/api/worklogs', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ startDate: weekStartStr, endDate: todayStr })
+                        body: JSON.stringify({ startDate: timeRange.startDate, endDate: timeRange.endDate })
                     })
                 ]);
 
@@ -69,18 +97,18 @@ export function AdminDashboard() {
                 const criticalBugs = await bugsRes.json();
                 const worklogsData = await worklogsRes.json();
 
-                // Calculate total weekly hours from worklogs
-                const totalWeeklySeconds = (worklogsData.worklogs || []).reduce(
+                // Calculate total hours from worklogs based on time range
+                const totalSeconds = (worklogsData.worklogs || []).reduce(
                     (sum: number, log: any) => sum + (log.timeSpentSeconds || 0), 0
                 );
-                const totalWeeklyHours = Math.round(totalWeeklySeconds / 3600);
+                const totalHours = Math.round(totalSeconds / 3600);
 
                 // 3. Update State
                 setStats({
                     activeProjects: Array.isArray(projects) ? projects.length : 0,
                     openIssues: openIssues.total || 0,
                     criticalBugs: criticalBugs.total || 0,
-                    totalHours: totalWeeklyHours
+                    totalHours: totalHours
                 });
 
             } catch (err) {
@@ -92,7 +120,7 @@ export function AdminDashboard() {
         }
 
         fetchData();
-    }, [t.dashboard.loadError]);
+    }, [t.dashboard.loadError, timeRange.startDate, timeRange.endDate]);
 
     const router = useRouter();
 
@@ -102,10 +130,18 @@ export function AdminDashboard() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
                 <h1 className="text-3xl font-bold tracking-tight">{t.dashboard.title}</h1>
-                <div className="flex items-center gap-4 w-[600px]">
-                    <div className="w-[200px]">
+                <div className="flex items-center gap-3 flex-wrap">
+                    {/* Time Range Selector */}
+                    <TimeRangeSelector
+                        value={timeRange}
+                        onChange={setTimeRange}
+                        language={language as "vi" | "en"}
+                    />
+
+                    {/* Project Filter */}
+                    <div className="w-[180px]">
                         <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
                             <SelectTrigger>
                                 <SelectValue placeholder={t.dashboard.selectProject} />
@@ -118,7 +154,12 @@ export function AdminDashboard() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <div className="flex-1">
+
+                    {/* Export Reports */}
+                    <ExportReports data={exportData} fileName="dashboard-report" />
+
+                    {/* JQL Search */}
+                    <div className="w-[250px]">
                         <JQLSearch onSearch={handleSearch} isLoading={loading} />
                     </div>
                 </div>
@@ -164,14 +205,29 @@ export function AdminDashboard() {
                 projectName={projectsList.find((p: any) => p.id === selectedProjectId)?.name}
             />
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <div className="col-span-1 md:col-span-2 lg:col-span-4">
-                    <WorkloadBarChart projectId={selectedProjectId} />
-                </div>
-                <div className="col-span-1 md:col-span-2 lg:col-span-3">
+            {/* Real-time Task Visualization */}
+            <div className="grid gap-4 md:grid-cols-1 mb-4">
+                <EnhancedActiveTasks hideHeader={true} initialProjectKey={selectedProjectId} />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-1 mb-4">
+                <div className="h-[400px]">
                     <ActivityStream projectId={selectedProjectId} />
                 </div>
             </div>
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+                <div className="col-span-1 md:col-span-2 lg:col-span-7">
+                    <WorkloadBarChart projectId={selectedProjectId} />
+                </div>
+            </div>
+
+            {/* Team Comparison Chart */}
+            <TeamComparisonChart
+                projectKey={projectsList.find((p: any) => p.id === selectedProjectId)?.key || selectedProjectId}
+                startDate={timeRange.startDate}
+                endDate={timeRange.endDate}
+            />
         </div>
     );
 }

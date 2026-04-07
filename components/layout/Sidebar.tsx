@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FolderKanban, Users, Settings, BarChart3 } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Users, Settings, BarChart3, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
 
@@ -15,7 +15,7 @@ export function Sidebar() {
         { name: t.nav.projects, href: "/projects", icon: FolderKanban },
         { name: t.nav.resources, href: "/resources", icon: Users },
         { name: t.nav.performance, href: "/performance", icon: BarChart3 },
-        // { name: t.nav.reports, href: "/reports", icon: FileBarChart },
+        { name: t.nav.activeTasks, href: "/active-tasks", icon: Activity },
         { name: t.nav.settings, href: "/settings", icon: Settings },
     ];
 

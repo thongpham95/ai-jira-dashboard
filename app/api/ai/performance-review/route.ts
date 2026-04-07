@@ -17,7 +17,8 @@ function buildPerformanceReviewPrompt(
     members: MemberPerformanceMetrics[],
     role: string,
     dateRange: { start: string; end: string },
-    language: 'vi' | 'en'
+    language: 'vi' | 'en',
+    teamAverages: any
 ): string {
     const lang = language === 'vi' ? 'Vietnamese' : 'English';
     const roleLabel = role === 'developer' ? 'Developer' : role === 'tech_lead' ? 'Tech Lead' : 'QC';
@@ -33,12 +34,21 @@ function buildPerformanceReviewPrompt(
 ${anomalyText}`;
     }).join('\n\n');
 
+    const currentRoleAverages = teamAverages[role === 'tech_lead' ? 'techLead' : role] || {};
+    const avgPassRateStr = currentRoleAverages.firstTimePassRate !== undefined ? `Avg First Time Pass Rate: ${currentRoleAverages.firstTimePassRate}%` : '';
+    const avgCycleTimeStr = currentRoleAverages.avgCycleTimeHours !== undefined ? `Avg Cycle Time: ${currentRoleAverages.avgCycleTimeHours}h` : '';
+
     return `You are a professional Engineering Manager AI assistant. Analyze the following team performance data and produce a Performance Review summary for **${roleLabel}** team members.
 
 **RESPOND IN ${lang}.**
 
 ## Date Range: ${dateRange.start} → ${dateRange.end}
 ## Role: ${roleLabel}
+
+### Team Performance Averages (For Peer Comparison):
+- ${avgCycleTimeStr}
+- ${avgPassRateStr}
+- This team average is the baseline. Point out who is significantly faster/slower or has higher/lower quality than these averages.
 
 ### Team Members Performance Data:
 ${memberSummaries || 'No data available.'}
@@ -105,7 +115,7 @@ export async function POST(request: Request) {
         else if (selectedRole === 'qc') members = perfData.qcMembers;
         else members = [...perfData.developers, ...perfData.techLeads, ...perfData.qcMembers];
 
-        const prompt = buildPerformanceReviewPrompt(members, selectedRole, perfData.dateRange, language || 'vi');
+        const prompt = buildPerformanceReviewPrompt(members, selectedRole, perfData.dateRange, language || 'vi', perfData.teamAverages);
 
         // Generate AI review
         const client = new GoogleGenAI({ apiKey: getApiKey() });

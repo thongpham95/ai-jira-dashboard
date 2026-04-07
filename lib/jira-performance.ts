@@ -69,6 +69,11 @@ export interface PerformanceResult {
     developers: MemberPerformanceMetrics[];
     techLeads: MemberPerformanceMetrics[];
     qcMembers: MemberPerformanceMetrics[];
+    teamAverages: {
+        developer: { avgCycleTimeHours: number; firstTimePassRate: number };
+        techLead: { avgCycleTimeHours: number; reopenCount: number };
+        qc: { avgCycleTimeHours: number; reopenCount: number };
+    };
     dateRange: { start: string; end: string };
     totalIssuesAnalyzed: number;
 }
@@ -182,10 +187,34 @@ export async function fetchPerformanceData(
         return members.filter(m => options.userIds!.includes(m.userId));
     };
 
+    // Calculate Team Averages
+    const calcAvg = (members: MemberPerformanceMetrics[], field: keyof MemberPerformanceMetrics) => {
+        const validMembers = members.filter(m => m[field] !== undefined && typeof m[field] === 'number');
+        if (validMembers.length === 0) return 0;
+        const sum = validMembers.reduce((acc, m) => acc + (m[field] as number), 0);
+        return Math.round((sum / validMembers.length) * 10) / 10;
+    };
+
+    const teamAverages = {
+        developer: {
+            avgCycleTimeHours: calcAvg(developers, 'avgCycleTimeHours'),
+            firstTimePassRate: calcAvg(developers, 'firstTimePassRate'),
+        },
+        techLead: {
+            avgCycleTimeHours: calcAvg(techLeads, 'avgCycleTimeHours'),
+            reopenCount: calcAvg(techLeads, 'reopenCount'),
+        },
+        qc: {
+            avgCycleTimeHours: calcAvg(qcMembers, 'avgCycleTimeHours'),
+            reopenCount: calcAvg(qcMembers, 'reopenCount'),
+        }
+    };
+
     return {
         developers: filterByUser(developers),
         techLeads: filterByUser(techLeads),
         qcMembers: filterByUser(qcMembers),
+        teamAverages,
         dateRange: { start: startDate, end: endDate },
         totalIssuesAnalyzed: issues.length,
     };

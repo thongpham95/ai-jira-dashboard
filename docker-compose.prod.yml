@@ -10,7 +10,7 @@ services:
     environment:
       - NODE_ENV=production
     env_file:
-      - .env.local
+      - .env.production
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "wget", "-q", "--spider", "http://localhost:3000" ]

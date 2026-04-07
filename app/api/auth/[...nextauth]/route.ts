@@ -38,7 +38,7 @@ export const authOptions: NextAuthOptions = {
             // Persist the OAuth access_token and or the user id to the token right after signin
             if (account) {
                 token.accessToken = account.access_token;
-                token.refreshToken = account.refresh_token;
+                // Removed refreshToken to reduce cookie size and avoid Nginx 502 Bad Gateway (Header too large)
                 token.expiresAt = account.expires_at;
                 token.cloudId = await fetchCloudId(account.access_token!);
             }

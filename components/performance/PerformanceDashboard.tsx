@@ -10,6 +10,8 @@ import {
     Activity, Zap, Target, XCircle
 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence } from "framer-motion";
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -48,6 +50,11 @@ interface PerformanceData {
     developers: MemberPerformanceMetrics[];
     techLeads: MemberPerformanceMetrics[];
     qcMembers: MemberPerformanceMetrics[];
+    teamAverages: {
+        developer: { avgCycleTimeHours: number; firstTimePassRate: number };
+        techLead: { avgCycleTimeHours: number; reopenCount: number };
+        qc: { avgCycleTimeHours: number; reopenCount: number };
+    };
     dateRange: { start: string; end: string };
     totalIssuesAnalyzed: number;
 }
@@ -187,39 +194,14 @@ export function PerformanceDashboard({ projectKey, projectName }: PerformanceDas
         ? Math.round(members.reduce((s, m) => s + m.avgCycleTimeHours, 0) / members.length * 10) / 10
         : 0;
 
-    const renderMarkdown = (text: string) => {
-        const lines = text.split("\n");
-        return lines.map((line, i) => {
-            if (line.startsWith("### ")) {
-                return <h3 key={i} className="font-semibold text-base mt-4 mb-2">{line.replace("### ", "")}</h3>;
-            }
-            if (line.startsWith("## ")) {
-                return <h2 key={i} className="font-bold text-lg mt-3 mb-2">{line.replace("## ", "")}</h2>;
-            }
-            if (line.startsWith("- ") || line.startsWith("* ")) {
-                const content = line.replace(/^[-*]\s/, "");
-                return (
-                    <div key={i} className="flex gap-2 ml-2 mb-1">
-                        <span className="text-muted-foreground">•</span>
-                        <span dangerouslySetInnerHTML={{
-                            __html: content
-                                .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-                                .replace(/\[(.*?)\]/g, '<code class="bg-muted px-1 rounded text-xs">$1</code>')
-                        }} />
-                    </div>
-                );
-            }
-            if (line.startsWith("---")) {
-                return <hr key={i} className="my-3 border-border" />;
-            }
-            if (line.trim() === "") return <div key={i} className="h-1" />;
-            return <p key={i} className="mb-1 text-sm" dangerouslySetInnerHTML={{
-                __html: line
-                    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-                    .replace(/\[(.*?)\]/g, '<code class="bg-muted px-1 rounded text-xs">$1</code>')
-            }} />;
-        });
+    const getAveragesForTab = (tab: string) => {
+        if (!data?.teamAverages) return null;
+        if (tab === "tech_lead") return data.teamAverages.techLead;
+        if (tab === "qc") return data.teamAverages.qc;
+        return data.teamAverages.developer;
     };
+    
+    const roleAverages = getAveragesForTab(activeTab);
 
     const vi = language === "vi";
 
@@ -562,12 +544,39 @@ export function PerformanceDashboard({ projectKey, projectName }: PerformanceDas
                                                                     <td className="p-3 font-medium">{m.userName}</td>
                                                                     <td className="p-3 text-center">{m.totalIssuesCompleted}</td>
                                                                     <td className="p-3 text-center">{m.totalStoryPoints}</td>
-                                                                    <td className="p-3 text-center">{m.avgCycleTimeHours}h</td>
+                                                                    <td className="p-3 text-center">
+                                                                        <div className="flex flex-col items-center">
+                                                                            <span>{m.avgCycleTimeHours}h</span>
+                                                                            <span>{m.avgCycleTimeHours}h</span>
+                                                                            {roleAverages && roleAverages.avgCycleTimeHours !== undefined && (
+                                                                                <span className={`text-[10px] ${
+                                                                                    m.avgCycleTimeHours > roleAverages.avgCycleTimeHours 
+                                                                                        ? 'text-red-500' 
+                                                                                        : 'text-emerald-500'
+                                                                                }`}>
+                                                                                    {m.avgCycleTimeHours > roleAverages.avgCycleTimeHours ? '↑' : '↓'} 
+                                                                                    TB: {roleAverages.avgCycleTimeHours}h
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    </td>
                                                                     <td className="p-3 text-center">{m.medianCycleTimeHours}h</td>
                                                                     <td className="p-3 text-center">
-                                                                        <span className={`font-medium ${m.firstTimePassRate >= 80 ? 'text-emerald-600 dark:text-emerald-400' : m.firstTimePassRate >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
-                                                                            {m.firstTimePassRate}%
-                                                                        </span>
+                                                                        <div className="flex flex-col items-center">
+                                                                            <span className={`font-medium ${m.firstTimePassRate >= 80 ? 'text-emerald-600 dark:text-emerald-400' : m.firstTimePassRate >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                                                                                {m.firstTimePassRate}%
+                                                                            </span>
+                                                                            {roleAverages && (roleAverages as any).firstTimePassRate !== undefined && (
+                                                                                <span className={`text-[10px] ${
+                                                                                    m.firstTimePassRate < (roleAverages as any).firstTimePassRate 
+                                                                                        ? 'text-red-500' 
+                                                                                        : 'text-emerald-500'
+                                                                                }`}>
+                                                                                    {m.firstTimePassRate < (roleAverages as any).firstTimePassRate ? '↓' : '↑'}
+                                                                                    TB: {(roleAverages as any).firstTimePassRate}%
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
                                                                     </td>
                                                                     <td className="p-3 text-center">
                                                                         {m.reopenCount > 0 ? (
@@ -662,7 +671,9 @@ export function PerformanceDashboard({ projectKey, projectName }: PerformanceDas
                                         exit={{ opacity: 0, height: 0 }}
                                         className="prose prose-sm dark:prose-invert max-w-none bg-muted/30 rounded-lg p-4 border text-sm overflow-hidden"
                                     >
-                                        {renderMarkdown(aiReview)}
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                            {aiReview}
+                                        </ReactMarkdown>
                                     </motion.div>
                                 )}
                             </AnimatePresence>

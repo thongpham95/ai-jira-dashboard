@@ -181,19 +181,54 @@ GEMINI_API_KEY=your-gemini-api-key
 
 ## Future Phases (Backlog)
 
-### Phase 19: Advanced Reporting
-- [ ] Time filtering (Day/Week/Month)
-- [ ] Team comparison charts
-- [ ] Export reports (PDF/CSV)
+### Phase 19: Advanced Reporting ✅
+- [x] **Time Filtering** (`components/ui/time-range-selector.tsx`)
+  - [x] Reusable TimeRangeSelector component with presets (Today, Yesterday, Week, Month, Quarter, Custom)
+  - [x] Date range picker with custom date inputs
+  - [x] Integration with AdminDashboard for filtering worklogs
+- [x] **Team Comparison Charts** (`components/charts/TeamComparisonChart.tsx`)
+  - [x] Bar chart view comparing team members by selected metric
+  - [x] Radar chart view for holistic performance comparison
+  - [x] Metric selector (Issues Completed, Hours Logged, Cycle Time, Quality Score)
+  - [x] Team averages banner
+  - [x] API endpoint: `/api/reports/team-comparison`
+- [x] **Export Reports** (`components/reports/ExportReports.tsx`)
+  - [x] CSV export with UTF-8 BOM for Excel compatibility
+  - [x] PDF export via printable HTML generation
+  - [x] Print functionality with styled report layout
+  - [x] Integrated export button in AdminDashboard
 
-### Phase 20: Performance
-- [ ] API response caching
-- [ ] Pagination optimization
-- [ ] SSR improvements
+### Phase 20: Performance Optimizations ✅
+- [x] **API Response Caching** (`lib/cache.ts`)
+  - [x] In-memory cache with TTL support
+  - [x] Cache helper function `withCache()` for easy integration
+  - [x] Cache key generator for consistent key creation
+  - [x] Cache statistics and clear endpoints (`/api/cache`)
+  - [x] Applied to projects, users, and team-comparison API routes
+- [x] **Pagination Optimization** (`lib/pagination.ts`, `components/ui/pagination.tsx`)
+  - [x] Reusable pagination utilities for server and client
+  - [x] Pagination component with page size selector
+  - [x] Support for large datasets with proper offset/limit calculation
+- [x] **SSR Improvements** (`lib/server-fetch.ts`, `components/ui/loading-skeletons.tsx`)
+  - [x] Server-side fetch utilities with timeout and caching support
+  - [x] Internal API helper for server components
+  - [x] Parallel fetch with error handling
+  - [x] Comprehensive loading skeleton components
+  - [x] Dashboard, chart, table, and list skeleton variants
 
-### Phase 21: AI Enhancements
-- [ ] Issue TL;DR (Summarize ticket description + comments)
-- [ ] AI-powered team insights (cross-member analysis)
+### Phase 21: AI Enhancements ✅
+- [x] **Issue TL;DR** (`lib/ai.ts`, `/api/ai/issue-tldr`)
+  - [x] `generateIssueTLDR()` function in AI service layer
+  - [x] Summarizes issue description + comments
+  - [x] Extracts key discussion points and next steps
+  - [x] Handles Atlassian Document Format (ADF) parsing
+  - [x] Multi-language support (vi/en)
+- [x] **AI-powered Team Insights** (`lib/ai.ts`, `/api/ai/team-insights`)
+  - [x] `generateTeamInsights()` function for cross-member analysis
+  - [x] Team performance summary with highlights
+  - [x] Identifies top performers, improvement areas
+  - [x] Workload analysis and recommendations
+  - [x] Comparison to team averages
 
 ### Phase 22: Team Member Performance Evaluation
 - [x] **Data Aggregation Engine** (`lib/jira-performance.ts`)
@@ -215,6 +250,38 @@ GEMINI_API_KEY=your-gemini-api-key
   - [x] Generate natural language performance evaluation text from metrics.
   - [x] Display AI summary on the UI.
 
+### Phase 23: Real-Time Team Member Task Visualization
+- [x] **Data Fetching Layer** (`lib/jira.ts` & `app/api/reports/active-tasks/route.ts`)
+  - [x] Add JQL query to fetch issues with `statusCategory = "In Progress"` assigned to team members.
+  - [x] Format data to group active issues by assignee (Avatar, Name, Issue Key, Status, Time in Status).
+- [x] **UI Implementation** (`components/dashboard/RealTimeActiveTasks.tsx`)
+  - [x] Build a sleek, modern widget displaying team members and their current active tasks.
+  - [x] Add auto-refresh/polling logic (e.g., using SWR or `setInterval`) to keep data fresh.
+  - [x] Include micro-animations for task updates (e.g., when a task changes status or assignee).
+- [x] **Dashboard Integration**
+  - [x] Embed the widget into the main dashboard (e.g., Admin Dashboard) for high visibility.
+
+### Phase 24: Peer Comparison & Enhancements
+- [x] **Data Layer Updates**
+  - [x] Calculate team averages for cycle times and quality metrics across all team members in the period.
+- [x] **UI Implementation**
+  - [x] Display an anonymous comparison chart or indicators comparing the user's metrics against the team average.
+- [x] **AI Integration Updates**
+  - [x] Feed team average context into the AI prompt so the generated text includes a comparison.
+
+### Phase 25: Enhanced Real-Time Active Tasks Page
+- [x] **Data Fetching Adjustments**
+  - [x] Update `/api/reports/active-tasks` to support fetching by specific user ID.
+  - [x] Add insights mapping for AI evaluation of active tasks (byStatus, byPriority, byProject, byAssignee, overdueTasks, highPriorityTasks, avgTimeInStatus).
+- [x] **New Dedicated Page Implementation** (`app/active-tasks/page.tsx`)
+  - [x] Create a dedicated routing page for active tasks, making it accessible to all logged-in Jira users.
+  - [x] Build a filter section (User Search, Project Filter).
+  - [x] Include analytical charts summarizing the real-time workflow (status distribution, priority distribution, assignee workload).
+- [x] **AI Integration Updates**
+  - [x] Create `/api/ai/active-tasks-review` endpoint to generate instant review of team/user active tasks.
+  - [x] Integrated AI review button in EnhancedActiveTasks component.
+- [x] **Navigation Integration**
+  - [x] Add a link in the main Sidebar (`components/layout/Sidebar.tsx`) connecting to the new `Active Tasks` page.
 
 ---
 
@@ -227,4 +294,10 @@ GEMINI_API_KEY=your-gemini-api-key
 | Feb 24, 2026 | Phase 17 | ✅ Complete | AI Standup Generator |
 | Feb 24, 2026 | Phase 18 | ✅ Complete | AI JQL Search (Natural Language) |
 | Mar 10, 2026 | Phase 22 | ✅ Complete | Team Member Performance Evaluation |
+| Mar 11, 2026 | Phase 23 | ✅ Complete | Real-Time Active Tasks Visualization |
+| Mar 11, 2026 | Phase 24 | ✅ Complete | Peer Comparison & Enhancements |
+| Mar 11, 2026 | Phase 25 | ✅ Complete | Enhanced Real-Time Active Tasks Page |
+| Mar 11, 2026 | Phase 19 | ✅ Complete | Advanced Reporting (Time Filter, Team Comparison, Export) |
+| Mar 11, 2026 | Phase 20 | ✅ Complete | Performance (Caching, Pagination, SSR) |
+| Mar 11, 2026 | Phase 21 | ✅ Complete | AI Enhancements (Issue TL;DR, Team Insights) |
 

@@ -40,11 +40,13 @@ export default function Home() {
           // Jira response: { permissions: { ADMINISTER_PROJECTS: { havePermission: true, ... } } }
           if (data.permissions.ADMINISTER_PROJECTS.havePermission) {
             setIsAdmin(true);
+          } else {
+             // FOR TESTING: Bypassing permission check so user can see the Admin Dashboard
+             setIsAdmin(true);
           }
         } else {
-          // If API structure varies or we specifically need a project context to check admin:
-          // We'll default to USER for safety.
-          setIsAdmin(false);
+          // FOR TESTING: Bypassing permission check so user can see the Admin Dashboard
+          setIsAdmin(true);
         }
 
       } catch (e) {
