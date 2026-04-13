@@ -1,6 +1,10 @@
+import dns from "node:dns";
 import NextAuth, { NextAuthOptions } from "next-auth";
 import AtlassianProvider from "next-auth/providers/atlassian";
 import CredentialsProvider from "next-auth/providers/credentials";
+
+// Force IPv4 DNS resolution — IPv6 to Atlassian's endpoints times out on some networks
+dns.setDefaultResultOrder("ipv4first");
 
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -10,6 +14,40 @@ export const authOptions: NextAuthOptions = {
             authorization: {
                 params: {
                     scope: "read:jira-work read:jira-user read:me",
+                },
+            },
+            // Override token exchange to avoid openid-client's 3500ms timeout
+            token: {
+                async request({ params, provider }) {
+                    const res = await fetch("https://auth.atlassian.com/oauth/token", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            grant_type: "authorization_code",
+                            client_id: provider.clientId,
+                            client_secret: provider.clientSecret,
+                            code: params.code,
+                            redirect_uri: provider.callbackUrl,
+                        }),
+                        signal: AbortSignal.timeout(30000),
+                    });
+                    if (!res.ok) {
+                        const text = await res.text();
+                        throw new Error(`Atlassian token exchange failed (${res.status}): ${text}`);
+                    }
+                    const tokens = await res.json();
+                    return { tokens };
+                },
+            },
+            userinfo: {
+                async request({ tokens }) {
+                    const res = await fetch("https://api.atlassian.com/me", {
+                        headers: { Authorization: `Bearer ${tokens.access_token}` },
+                        signal: AbortSignal.timeout(15000),
+                    });
+                    if (!res.ok) throw new Error("Failed to fetch Atlassian user info");
+                    const profile = await res.json();
+                    return profile;
                 },
             },
         }),
@@ -64,7 +102,7 @@ export const authOptions: NextAuthOptions = {
         strategy: "jwt",
     },
     pages: {
-        signIn: "/", // Redirect to home to trigger sign-in modal if needed, or use default
+        signIn: "/",
     },
 };
 

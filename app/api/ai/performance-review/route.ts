@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { fetchPerformanceData, type MemberPerformanceMetrics } from '@/lib/jira-performance';
-import { type GeminiModel } from '@/lib/ai';
+import { type GeminiModel, retryWithFallback } from '@/lib/ai';
 import { GoogleGenAI } from '@google/genai';
 
 function getApiKey(): string {
@@ -117,24 +117,24 @@ export async function POST(request: Request) {
 
         const prompt = buildPerformanceReviewPrompt(members, selectedRole, perfData.dateRange, language || 'vi', perfData.teamAverages);
 
-        // Generate AI review
+        // Generate AI review with automatic model fallback
         const client = new GoogleGenAI({ apiKey: getApiKey() });
         const selectedModel: GeminiModel = model || 'gemini-2.5-flash';
-        const isPro = selectedModel.includes('pro');
 
-        const response = await client.models.generateContent({
-            model: selectedModel,
-            contents: prompt,
-            config: {
-                temperature: 0.3,
-                maxOutputTokens: 8192,
-                ...(isPro ? {
-                    thinkingConfig: {
-                        thinkingBudget: 4096,
-                    },
-                } : {}),
-            },
-        });
+        const { result: response, usedModel } = await retryWithFallback(
+            (modelToUse) => client.models.generateContent({
+                model: modelToUse,
+                contents: prompt,
+                config: {
+                    temperature: 0.3,
+                    maxOutputTokens: 8192,
+                    ...(modelToUse.includes('pro') ? {
+                        thinkingConfig: { thinkingBudget: 4096 },
+                    } : {}),
+                },
+            }),
+            selectedModel,
+        );
 
         const text = response.text;
         if (!text || text.trim().length === 0) {
@@ -145,7 +145,8 @@ export async function POST(request: Request) {
             review: text,
             metadata: {
                 generatedAt: new Date().toISOString(),
-                model: selectedModel,
+                model: usedModel,
+                requestedModel: selectedModel !== usedModel ? selectedModel : undefined,
                 role: selectedRole,
                 dateRange: perfData.dateRange,
                 membersAnalyzed: members.length,

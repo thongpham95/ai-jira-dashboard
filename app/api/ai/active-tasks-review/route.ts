@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { type GeminiModel } from '@/lib/ai';
+import { type GeminiModel, retryWithFallback } from '@/lib/ai';
 import { GoogleGenAI } from '@google/genai';
 import { type ActiveTask, type ActiveTasksInsights } from '@/app/api/reports/active-tasks/route';
 
@@ -172,24 +172,24 @@ export async function POST(request: Request) {
 
         const prompt = buildActiveTasksReviewPrompt(tasks, insights, language || 'vi', targetUserName);
 
-        // Generate AI review
+        // Generate AI review with automatic model fallback
         const client = new GoogleGenAI({ apiKey: getApiKey() });
         const selectedModel: GeminiModel = model || 'gemini-2.5-flash';
-        const isPro = selectedModel.includes('pro');
 
-        const response = await client.models.generateContent({
-            model: selectedModel,
-            contents: prompt,
-            config: {
-                temperature: 0.3,
-                maxOutputTokens: 4096,
-                ...(isPro ? {
-                    thinkingConfig: {
-                        thinkingBudget: 2048,
-                    },
-                } : {}),
-            },
-        });
+        const { result: response, usedModel } = await retryWithFallback(
+            (modelToUse) => client.models.generateContent({
+                model: modelToUse,
+                contents: prompt,
+                config: {
+                    temperature: 0.3,
+                    maxOutputTokens: 4096,
+                    ...(modelToUse.includes('pro') ? {
+                        thinkingConfig: { thinkingBudget: 2048 },
+                    } : {}),
+                },
+            }),
+            selectedModel,
+        );
 
         const text = response.text;
         if (!text || text.trim().length === 0) {
@@ -200,7 +200,7 @@ export async function POST(request: Request) {
             review: text,
             metadata: {
                 generatedAt: new Date().toISOString(),
-                model: selectedModel,
+                model: usedModel,
                 totalTasks: insights.totalTasks,
                 overdueTasks: insights.overdueTasks,
                 highPriorityTasks: insights.highPriorityTasks,

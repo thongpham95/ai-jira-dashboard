@@ -5,14 +5,80 @@
 import { GoogleGenAI } from "@google/genai";
 import { withCache, createCacheKey, CACHE_TTL } from "./cache";
 
-export type GeminiModel = "gemini-2.5-flash" | "gemini-2.5-pro";
+export type GeminiModel = "gemini-2.5-flash" | "gemini-2.5-pro" | "gemini-2.0-flash" | "gemini-3-flash-preview" | "gemini-3-pro-preview";
 
 export const GEMINI_MODELS: { value: GeminiModel; label: string; description: string }[] = [
-    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash", description: "Fastest, free tier friendly" },
+    { value: "gemini-3-flash-preview", label: "Gemini 3 Flash Preview", description: "Latest, fastest preview" },
+    { value: "gemini-3-pro-preview", label: "Gemini 3 Pro Preview", description: "Latest pro preview" },
+    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash", description: "Fast, free tier friendly" },
+    { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash", description: "Stable fallback" },
     { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro", description: "Deep analysis, higher cost" },
 ];
 
 export const DEFAULT_MODEL: GeminiModel = "gemini-2.5-flash";
+
+// Fallback order when the selected model returns 503/UNAVAILABLE
+const MODEL_FALLBACKS: Record<string, GeminiModel[]> = {
+    "gemini-2.5-flash": ["gemini-3-flash-preview", "gemini-2.0-flash"],
+    "gemini-2.5-pro": ["gemini-3-pro-preview", "gemini-2.5-flash", "gemini-2.0-flash"],
+    "gemini-3-flash-preview": ["gemini-2.5-flash", "gemini-2.0-flash"],
+    "gemini-3-pro-preview": ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"],
+    "gemini-2.0-flash": ["gemini-2.5-flash"],
+};
+
+// Check if an error is retryable (503, 429, overloaded, etc.)
+function isRetryableError(msg: string): boolean {
+    return msg.includes("503") || msg.includes("UNAVAILABLE") ||
+        msg.includes("429") || msg.includes("overloaded") ||
+        msg.includes("high demand") || msg.includes("RESOURCE_EXHAUSTED");
+}
+
+// Retry with exponential backoff for transient errors (503, 429, etc.)
+export async function retryWithBackoff<T>(
+    fn: () => Promise<T>,
+    { maxRetries = 2, baseDelayMs = 1000 }: { maxRetries?: number; baseDelayMs?: number } = {}
+): Promise<T> {
+    let lastError: Error | undefined;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return await fn();
+        } catch (error: any) {
+            lastError = error;
+            const msg = error?.message || "";
+            if (!isRetryableError(msg) || attempt === maxRetries) throw error;
+            const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 500;
+            console.warn(`[Gemini] Retryable error (attempt ${attempt + 1}/${maxRetries}): ${msg}. Retrying in ${Math.round(delay)}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+    throw lastError;
+}
+
+// Retry with automatic model fallback when primary model is unavailable
+export async function retryWithFallback<T>(
+    fn: (model: string) => Promise<T>,
+    primaryModel: string,
+): Promise<{ result: T; usedModel: string }> {
+    const fallbacks = MODEL_FALLBACKS[primaryModel] || [];
+    const modelsToTry = [primaryModel, ...fallbacks];
+
+    let lastError: Error | undefined;
+    for (const model of modelsToTry) {
+        try {
+            const result = await retryWithBackoff(() => fn(model));
+            if (model !== primaryModel) {
+                console.warn(`[Gemini] Fallback succeeded: ${primaryModel} → ${model}`);
+            }
+            return { result, usedModel: model };
+        } catch (error: any) {
+            lastError = error;
+            const msg = error?.message || "";
+            if (!isRetryableError(msg)) throw error;
+            console.warn(`[Gemini] Model ${model} unavailable, trying next fallback...`);
+        }
+    }
+    throw lastError;
+}
 
 // Get API key from environment variable
 function getApiKey(): string {
@@ -160,22 +226,19 @@ export async function generateExecutiveSummary(request: AISummaryRequest): Promi
 
     return withCache(cacheKey, async () => {
         try {
-            const response = await client.models.generateContent({
+            const response = await retryWithBackoff(() => client.models.generateContent({
                 model,
                 contents: prompt,
                 config: {
                     temperature: 0.3,
                     maxOutputTokens: 8192,
-                    // Gemini 2.5 Pro is a "thinking model" — it needs a thinking budget
-                    // to reason internally before producing output. Without this, the
-                    // thinking tokens consume the entire output budget → empty response.
                     ...(isPro ? {
                         thinkingConfig: {
                             thinkingBudget: 4096,
                         },
                     } : {}),
                 },
-            });
+            }));
 
             const text = response.text;
             if (!text || text.trim().length === 0) {
@@ -291,7 +354,7 @@ export async function generateStandupReport(request: StandupRequest): Promise<st
 
     return withCache(cacheKey, async () => {
         try {
-            const response = await client.models.generateContent({
+            const response = await retryWithBackoff(() => client.models.generateContent({
                 model,
                 contents: prompt,
                 config: {
@@ -303,7 +366,7 @@ export async function generateStandupReport(request: StandupRequest): Promise<st
                         },
                     } : {}),
                 },
-            });
+            }));
 
             const text = response.text;
             if (!text || text.trim().length === 0) {
@@ -374,14 +437,14 @@ export async function convertNaturalLanguageToJQL(request: JQLConversionRequest)
     const prompt = buildJQLPrompt(request.naturalLanguage, request.projectKeys || [], language);
 
     try {
-        const response = await client.models.generateContent({
+        const response = await retryWithBackoff(() => client.models.generateContent({
             model,
             contents: prompt,
             config: {
-                temperature: 0.1, // Very low for precise JQL output
+                temperature: 0.1,
                 maxOutputTokens: 512,
             },
-        });
+        }));
 
         const text = response.text?.trim();
         if (!text) {
@@ -528,14 +591,14 @@ export async function generateIssueTLDR(request: IssueTLDRRequest): Promise<stri
 
     return withCache(cacheKey, async () => {
         try {
-            const response = await client.models.generateContent({
+            const response = await retryWithBackoff(() => client.models.generateContent({
                 model,
                 contents: prompt,
                 config: {
                     temperature: 0.3,
                     maxOutputTokens: 2048,
                 },
-            });
+            }));
 
             const text = response.text?.trim();
             if (!text) {
@@ -669,7 +732,7 @@ export async function generateTeamInsights(request: TeamInsightsRequest): Promis
 
     return withCache(cacheKey, async () => {
         try {
-            const response = await client.models.generateContent({
+            const response = await retryWithBackoff(() => client.models.generateContent({
                 model,
                 contents: prompt,
                 config: {
@@ -681,7 +744,7 @@ export async function generateTeamInsights(request: TeamInsightsRequest): Promis
                         },
                     } : {}),
                 },
-            });
+            }));
 
             const text = response.text?.trim();
             if (!text) {
